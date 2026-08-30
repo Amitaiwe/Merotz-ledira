@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>מרוץ לדירה 🏠</title>
+<script>
+  window.addEventListener('error', function(){
+    if(document.getElementById('fatalError')) return;
+    var el = document.createElement('div');
+    el.id = 'fatalError';
+    el.style.cssText = 'position:fixed;inset:0;z-index:999;background:#1c1030;color:#fff6ea;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:sans-serif;direction:rtl;';
+    el.innerHTML =
+      '<div style="font-size:40px;margin-bottom:10px;">⚠️</div>' +
+      '<div style="font-weight:800;font-size:18px;margin-bottom:10px;">המשחק לא נטען כראוי</div>' +
+      '<div style="font-size:14px;opacity:.85;max-width:320px;line-height:1.6;margin-bottom:18px;">כנראה שאין חיבור לאינטרנט כרגע, או שהדפדפן חסם טעינת ספריית התלת-ממד (הקובץ טוען אותה מהאינטרנט). ודאו שיש חיבור ונסו שוב — או פתחו את הקובץ אחרי העלאה לאתר (כמו GitHub Pages) במקום ישירות מתוך אפליקציית הקבצים.</div>' +
+      '<button onclick="location.reload()" style="font-weight:800;font-size:16px;padding:12px 30px;border-radius:40px;border:none;background:linear-gradient(90deg,#ffc93c,#ff9d4d);color:#2b1400;">נסה שוב</button>';
+    document.body.appendChild(el);
+  });
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --sunset-1:#ff8a5c;
+    --sunset-2:#ff5f8f;
+    --sunset-3:#5b3b8c;
+    --ink:#1c1030;
+    --paper:#fff6ea;
+    --gold:#ffc93c;
+    --mint:#2dd4a7;
+    --danger:#ff4d5e;
+    --card:#241938;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    font-family:'Heebo', sans-serif; background:var(--ink);
+    direction:rtl; touch-action:none; overscroll-behavior:none;
+  }
+  #gameCanvas{position:fixed; inset:0; display:block; width:100%; height:100%;}
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed; top:0; right:0; left:0; z-index:10;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:14px 16px; pointer-events:none;
+  }
+  .pill{
+    background:rgba(28,16,48,0.62); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:16px; padding:8px 16px; color:var(--paper);
+    font-weight:800; font-size:15px; box-shadow:0 6px 18px rgba(0,0,0,0.25);
+    display:flex; align-items:center; gap:8px; letter-spacing:.2px;
+  }
+  .pill .big{font-size:20px; font-variant-numeric:tabular-nums;}
+  #comboWrap{position:fixed; top:70px; right:16px; z-index:10; pointer-events:none;}
+  #combo{
+    background:linear-gradient(90deg,var(--gold),#ff9d4d); color:#3a1e00;
+    border-radius:12px; padding:4px 12px; font-weight:900; font-size:14px;
+    opacity:0; transform:translateY(-6px) scale(.9); transition:opacity .18s, transform .18s;
+    box-shadow:0 4px 12px rgba(255,180,50,.4);
+  }
+  #combo.show{opacity:1; transform:translateY(0) scale(1);}
+
+  #soundBtn{
+    position:fixed; top:14px; left:14px; z-index:20; pointer-events:auto;
+    width:42px; height:42px; border-radius:50%; border:1px solid rgba(255,255,255,0.16);
+    background:rgba(28,16,48,0.62); color:var(--paper); font-size:19px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+
+  /* ---------- Floating toast for pickups/hits ---------- */
+  #toastLayer{position:fixed; inset:0; z-index:9; pointer-events:none; overflow:hidden;}
+  .toast{
+    position:absolute; font-weight:800; font-size:15px; white-space:nowrap;
+    padding:5px 12px; border-radius:10px; transform:translate(-50%,-50%);
+    animation:floatUp 0.9s ease-out forwards;
+  }
+  .toast.good{background:rgba(45,212,167,0.92); color:#053324;}
+  .toast.bad{background:rgba(255,77,94,0.92); color:#3a0007;}
+  @keyframes floatUp{
+    0%{opacity:0; transform:translate(-50%,-40%) scale(.7);}
+    15%{opacity:1; transform:translate(-50%,-60%) scale(1.08);}
+    100%{opacity:0; transform:translate(-50%,-150%) scale(1);}
+  }
+
+  /* ---------- Screens ---------- */
+  .screen{
+    position:fixed; inset:0; z-index:30; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:24px;
+    background:radial-gradient(120% 100% at 50% 0%, #3a2160 0%, #1c1030 70%);
+    color:var(--paper);
+  }
+  .hidden{display:none !important;}
+  .logo-emoji{font-size:56px; line-height:1; filter:drop-shadow(0 6px 10px rgba(0,0,0,.4));}
+  h1.title{
+    font-size:clamp(28px,7vw,44px); font-weight:900; margin:8px 0 2px;
+    background:linear-gradient(90deg,var(--gold),var(--sunset-2));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .subtitle{font-size:15px; opacity:.85; max-width:340px; margin:0 0 22px; line-height:1.6; font-weight:600;}
+  .btn{
+    font-family:inherit; border:none; cursor:pointer; font-weight:900;
+    font-size:19px; padding:16px 42px; border-radius:50px; color:#2b1400;
+    background:linear-gradient(90deg,var(--gold),#ff9d4d);
+    box-shadow:0 10px 24px rgba(255,160,60,.35), inset 0 -3px 0 rgba(0,0,0,.15);
+    transition:transform .12s;
+  }
+  .btn:active{transform:scale(.95);}
+  .btn.secondary{
+    background:rgba(255,255,255,0.08); color:var(--paper);
+    box-shadow:none; border:1px solid rgba(255,255,255,.25); font-size:15px; padding:11px 26px;
+  }
+  .howto{
+    display:flex; gap:14px; margin:18px 0 26px; flex-wrap:wrap; justify-content:center; max-width:360px;
+  }
+  .howto div{
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    border-radius:14px; padding:10px 12px; font-size:12px; font-weight:700; width:96px;
+  }
+  .howto div .ic{font-size:22px; display:block; margin-bottom:4px;}
+  .hi{font-size:13px; opacity:.75; margin-top:14px; font-weight:700;}
+
+  #gameOverCard{max-width:380px; width:100%;}
+  .go-line{font-size:16px; font-weight:700; line-height:1.7; margin:2px 0;}
+  .go-punch{font-size:17px; font-weight:900; color:var(--gold); margin:6px 0 16px;}
+  .statRow{
+    display:flex; justify-content:space-between; gap:10px; width:100%; max-width:320px;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+    border-radius:16px; padding:14px 18px; margin:14px 0;
+  }
+  .statCol{display:flex; flex-direction:column; align-items:center; flex:1;}
+  .statCol .n{font-size:20px; font-weight:900; font-variant-numeric:tabular-nums;}
+  .statCol .l{font-size:11px; opacity:.7; font-weight:700; margin-top:2px;}
+  .flavor{font-size:13px; opacity:.8; font-weight:600; margin-bottom:6px;}
+  .newHi{color:var(--mint); font-weight:900; font-size:13px; margin-top:-6px; margin-bottom:10px;}
+
+  /* ---------- Mobile controls ---------- */
+  #mobileControls{
+    position:fixed; bottom:0; left:0; right:0; z-index:15;
+    display:none; justify-content:space-between; align-items:flex-end;
+    padding:0 14px 18px; pointer-events:none;
+  }
+  #mobileControls.active{display:flex;}
+  .mc-side{display:flex; gap:10px; pointer-events:auto;}
+  .mc-btn{
+    width:58px; height:58px; border-radius:50%;
+    background:rgba(28,16,48,0.55); border:1px solid rgba(255,255,255,.2);
+    color:var(--paper); font-size:24px; display:flex; align-items:center; justify-content:center;
+    user-select:none;
+  }
+  .mc-btn:active{background:rgba(255,180,50,.5);}
+  .mc-jump{width:70px; height:70px; font-size:27px; margin-bottom:4px;}
+
+  #swipeHint{
+    position:fixed; bottom:100px; left:0; right:0; text-align:center; z-index:14;
+    color:rgba(255,255,255,.55); font-size:12px; font-weight:700; pointer-events:none;
+    display:none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="toastLayer"></div>
+
+<div id="hud" class="hidden">
+  <div class="pill">💰 <span id="scoreVal" class="big">0</span></div>
+  <div class="pill">⏱️ <span id="timeVal" class="big">00:00</span></div>
+</div>
+<div id="comboWrap"><div id="combo">Combo x2!</div></div>
+<button id="soundBtn">🔇</button>
+
+<!-- Start screen -->
+<div id="startScreen" class="screen">
+  <div class="logo-emoji">🏃💨🏠</div>
+  <h1 class="title">מרוץ לדירה</h1>
+  <div class="howto">
+    <div><span class="ic">⬅️➡️</span>החלף נתיב</div>
+    <div><span class="ic">⬆️</span>קפוץ</div>
+    <div><span class="ic">⬇️</span>התכופף</div>
+  </div>
+  <button class="btn" id="startBtn">🏃 בוא נתחיל</button>
+  <div class="hi" id="startHi">שיא אישי: 0</div>
+</div>
+
+<!-- Game over screen -->
+<div id="gameOverScreen" class="screen hidden">
+  <div id="gameOverCard">
+    <div class="logo-emoji" id="goEmoji">😅</div>
+    <div class="go-line">אמנם תגור בשכירות עד הפנסיה...</div>
+    <div class="go-punch" id="goPunch">אבל לפחות נהנית בדרך.</div>
+    <div class="statRow">
+      <div class="statCol"><span class="n" id="goTime">00:00</span><span class="l">שרדת</span></div>
+      <div class="statCol"><span class="n" id="goScore">0</span><span class="l">נקודות</span></div>
+      <div class="statCol"><span class="n" id="goDist">0 מ׳</span><span class="l">מרחק</span></div>
+    </div>
+    <div class="flavor" id="goFlavor">הדירה התרחקה בעוד כמה מטרים.</div>
+    <div class="newHi hidden" id="newHiTag">🎉 שיא אישי חדש!</div>
+    <button class="btn" id="retryBtn">🔄 נסה שוב</button>
+    <div class="hi">🏆 שיא אישי: <span id="hiScore">0</span></div>
+  </div>
+</div>
+
+<div id="mobileControls">
+  <div class="mc-side">
+    <div class="mc-btn" id="btnLeft">➡️</div>
+  </div>
+  <div class="mc-side" style="flex-direction:column; align-items:center;">
+    <div class="mc-btn mc-jump" id="btnJump">⬆️</div>
+    <div class="mc-btn" id="btnDuck">⬇️</div>
+  </div>
+  <div class="mc-side">
+    <div class="mc-btn" id="btnRight">⬅️</div>
+  </div>
+</div>
+<div id="swipeHint">החלק ימינה/שמאלה כדי להחליף נתיב</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   מרוץ לדירה — Endless runner, satirical Israeli housing theme
+   Single-file Three.js implementation, no backend.
+========================================================= */
+
+/* ---------------- Data: obstacles & collectibles ---------------- */
+// action: 'dodge' (must change lane), 'jump' (low barrier), 'duck' (overhead barrier)
+const EXPENSES = [
+  {emoji:"🥩", text:"סטייק 180 ₪ לארוחת צהריים", action:"dodge", punch:"התפנקת על סטייק ב־180 ₪."},
+  {emoji:"🚢", text:"קרוז בחו״ל 7,500 ₪", action:"jump", punch:"היית בקרוז מפנק בחו״ל."},
+  {emoji:"🎤", text:"הופעה בגולדן רינג 600 ₪", action:"dodge", punch:"היית בגולדן רינג."},
+  {emoji:"🍣", text:"סושי ויין – 320 ₪", action:"duck", punch:"נהנית מסושי ויין משובח."},
+  {emoji:"🏨", text:"מלון מפנק לסופ״ש – 2,400 ₪", action:"jump", punch:"פינקת את עצמך בסופ״ש מלונאי."},
+  {emoji:"☕", text:"קפה ומאפה כל בוקר – 35 ₪", action:"dodge", punch:"התחלת כל בוקר עם קפה ומאפה איכותי."},
+  {emoji:"🛍️", text:"רק נכנסתי לקניון לקנות דבר אחד", action:"duck", punch:"יצאת מהקניון עם 5 שקיות."},
+  {emoji:"🚕", text:"מונית כי לא היה כוח לאוטובוס", action:"dodge", punch:"הגעת בנוחות במונית."},
+  {emoji:"🛋️", text:"איקאה - \"רק כמה דברים קטנים\"", action:"jump", punch:"הדירה השכורה נראית מעולה עכשיו."},
+  {emoji:"👟", text:"נעליים חדשות כי \"היו במבצע\"", action:"dodge", punch:"קנית נעליים חדשות ב\"מבצע\"."},
+  {emoji:"🍕", text:"משלוח פיצה בפעם השלישית השבוע", action:"duck", punch:"אכלת כמו מלך כל השבוע."},
+  {emoji:"🎭", text:"כרטיסים להיכל התרבות", action:"dodge", punch:"נהנית מערב תרבות מפנק."},
+  {emoji:"📱", text:"שדרוג לאייפון החדש", action:"jump", punch:"יש לך את הטלפון הכי חדש בשוק."},
+  {emoji:"🎢", text:"יום כיף בפארק מים", action:"dodge", punch:"היה לך יום כיף בפארק מים."},
+  {emoji:"🥑", text:"ארוחת בראנץ׳ זוגית – 250 ₪", action:"duck", punch:"נהנית מבראנץ׳ מפנק עם אבוקדו."}
+];
+
+const SAVINGS = [
+  {emoji:"👨‍👩‍👧", text:"שבת אצל ההורים – אוכל חינם"},
+  {emoji:"🥪", text:"טוסט לארוחת צהריים – 12 ₪"},
+  {emoji:"🏷️", text:"מבצע 1+1"},
+  {emoji:"🎟️", text:"קופון 30% הנחה"},
+  {emoji:"🍝", text:"אכלתי בבית"},
+  {emoji:"🛒", text:"קניתי במבצע"},
+  {emoji:"🚶", text:"הלכתי ברגל במקום מונית"},
+  {emoji:"💰", text:"חסכתי 50 ₪"},
+  {emoji:"🚫☕", text:"תרמוס מהבית במקום קפה בחוץ"},
+  {emoji:"👕", text:"בגדים יד שנייה"},
+  {emoji:"✂️", text:"ביטלתי מנוי שלא השתמשתי בו"},
+  {emoji:"🏦", text:"פיקדון בריבית טובה"},
+  {emoji:"💪", text:"עבודה נוספת בסופ״ש"},
+  {emoji:"📦", text:"מכרתי דברים ישנים ביד2"},
+  {emoji:"🎁", text:"תלוש מתנה מהעבודה"}
+];
+
+/* ---------------- Constants ---------------- */
+const LANE_WIDTH = 2.6;
+const LANES = [-LANE_WIDTH, 0, LANE_WIDTH];
+const GRAVITY = 26;
+const JUMP_VELOCITY = 10.5;
+const SLIDE_DURATION = 0.55;
+const SPAWN_Z = -70;
+const DESPAWN_Z = 6;
+const BASE_SPEED = 13;
+const MAX_SPEED = 34;
+const LANE_LERP = 12;
+
+/* ---------------- Utility ---------------- */
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function fmtTime(s){
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0");
+}
+function fmtNum(n){ return Math.floor(n).toLocaleString("he-IL"); }
+
+/* ---------------- Canvas texture helpers ---------------- */
+function makeCanvas(w,h){
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  return c;
+}
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function labelTexture(emoji, text, kind){
+  // kind: 'expense' | 'saving'
+  const c = makeCanvas(300,340);
+  const ctx = c.getContext("2d");
+  const bg = kind==="expense" ? "#ff4d5e" : "#2dd4a7";
+  const bgDark = kind==="expense" ? "#b8202f" : "#0f9c78";
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.35)";
+  ctx.shadowBlur = 14; ctx.shadowOffsetY = 8;
+  roundRect(ctx,20,110,260,190,26);
+  ctx.fillStyle = bg; ctx.fill();
+  ctx.restore();
+  roundRect(ctx,20,110,260,190,26);
+  ctx.strokeStyle = bgDark; ctx.lineWidth = 6; ctx.stroke();
+
+  // emoji circle
+  ctx.save();
+  ctx.shadowColor="rgba(0,0,0,.3)"; ctx.shadowBlur=10;
+  ctx.beginPath(); ctx.arc(150,90,70,0,Math.PI*2);
+  ctx.fillStyle="#fff6ea"; ctx.fill();
+  ctx.restore();
+  ctx.font = "78px 'Noto Color Emoji','Apple Color Emoji',sans-serif";
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(emoji, 150, 96);
+
+  // text
+  ctx.direction = "rtl";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#fff";
+  ctx.font = "800 25px Heebo, sans-serif";
+  wrapText(ctx, text, 150, 195, 225, 30, 3);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines){
+  const words = text.split(" ");
+  let line = "";
+  let lines = [];
+  for(let i=0;i<words.length;i++){
+    const test = line ? line+" "+words[i] : words[i];
+    if(ctx.measureText(test).width > maxWidth && line){
+      lines.push(line); line = words[i];
+    } else {
+      line = test;
+    }
+  }
+  if(line) lines.push(line);
+  if(lines.length>maxLines){
+    lines = lines.slice(0,maxLines);
+    lines[maxLines-1] += "…";
+  }
+  const startY = y - (lines.length-1)*lineHeight/2;
+  lines.forEach((l,i)=> ctx.fillText(l, x, startY + i*lineHeight));
+}
+
+function signTexture(text, sub, colorA, colorB){
+  const c = makeCanvas(520,300);
+  const ctx = c.getContext("2d");
+  const grad = ctx.createLinearGradient(0,0,0,300);
+  grad.addColorStop(0,colorA); grad.addColorStop(1,colorB);
+  roundRect(ctx,10,10,500,280,28);
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle="rgba(255,255,255,0.65)"; ctx.lineWidth=8; ctx.stroke();
+  // corner bolts
+  ctx.fillStyle="rgba(255,255,255,0.55)";
+  [[35,35],[485,35],[35,265],[485,265]].forEach(p=>{
+    ctx.beginPath(); ctx.arc(p[0],p[1],7,0,Math.PI*2); ctx.fill();
+  });
+  ctx.direction="rtl"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillStyle="#fff";
+  ctx.font="900 76px Heebo, sans-serif";
+  ctx.shadowColor="rgba(0,0,0,.35)"; ctx.shadowBlur=8;
+  ctx.fillText(text, 260, sub? 118:150);
+  if(sub){
+    ctx.font="700 34px Heebo, sans-serif";
+    ctx.fillText(sub, 260, 190);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function buildingTexture(seed){
+  const w=256,h=512;
+  const c = makeCanvas(w,h);
+  const ctx = c.getContext("2d");
+  const hues = ["#3a2f57","#4a3568","#2f3a5c","#553a5c","#37456b"];
+  ctx.fillStyle = hues[seed % hues.length];
+  ctx.fillRect(0,0,w,h);
+  // windows grid
+  const cols=6, rows=14;
+  const mw = w/cols, mh = h/rows;
+  for(let r=0;r<rows;r++){
+    for(let cI=0;cI<cols;cI++){
+      const lit = Math.random() < 0.35;
+      ctx.fillStyle = lit ? "rgba(255,214,120,0.85)" : "rgba(15,10,30,0.55)";
+      ctx.fillRect(cI*mw+mw*0.22, r*mh+mh*0.28, mw*0.56, mh*0.5);
+    }
+  }
+  if(seed % 3 === 0){
+    ctx.save();
+    ctx.translate(w/2, h*0.12);
+    ctx.rotate(0);
+    roundRect(ctx,-95,-30,190,60,8);
+    ctx.fillStyle="#1e63c7"; ctx.fill();
+    ctx.strokeStyle="#fff"; ctx.lineWidth=3; ctx.stroke();
+    ctx.direction="rtl"; ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.font="900 30px Heebo, sans-serif";
+    ctx.fillText("להשכרה", 0, 2);
+    ctx.restore();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function roadTexture(){
+  const w=256,h=1024;
+  const c = makeCanvas(w,h);
+  const ctx = c.getContext("2d");
+  ctx.fillStyle="#2b2a33"; ctx.fillRect(0,0,w,h);
+  for(let i=0;i<h;i+=4){
+    ctx.fillStyle = Math.random()>0.5 ? "rgba(255,255,255,0.015)" : "rgba(0,0,0,0.02)";
+    ctx.fillRect(0,i,w,2);
+  }
+  ctx.fillStyle="#e8c94a";
+  const laneXs=[w*0.333, w*0.667];
+  laneXs.forEach(lx=>{
+    for(let y=0;y<h;y+=70){
+      ctx.fillRect(lx-4, y, 8, 40);
+    }
+  });
+  ctx.fillStyle="rgba(255,255,255,0.85)";
+  ctx.fillRect(6,0,5,h); ctx.fillRect(w-11,0,5,h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1, 18);
+  return tex;
+}
+
+/* ---------------- Character sprite (procedural, animated) ---------------- */
+function makeCharacterCanvas(){
+  const c = makeCanvas(220,260);
+  return c;
+}
+function drawCharacter(ctx, phase, state){
+  // state: run, jump, slide, hit
+  ctx.clearRect(0,0,220,260);
+  ctx.save();
+  ctx.translate(110, 220);
+
+  const skin = "#f2b98d";
+  const shirt = "#2f7ff0";
+  const shirt2 = "#1c5fd0";
+  const pants = "#2a2438";
+  const hair = "#241a12";
+
+  let legSwing = Math.sin(phase)*0.62;
+  let armSwing = Math.sin(phase)*0.55;
+  let bodyTilt = 0;
+  let squat = 0;
+  let headBob = Math.abs(Math.sin(phase))*4;
+
+  if(state==="jump"){ legSwing=0.25; armSwing=-0.6; squat=0; bodyTilt=-0.08; headBob=-14;}
+  if(state==="slide"){ squat=48; bodyTilt=0; legSwing=0; armSwing=0.2; headBob=0;}
+  if(state==="hit"){ bodyTilt=0.5; legSwing=0; armSwing=-1.1; }
+
+  ctx.translate(0, squat);
+  ctx.rotate(bodyTilt);
+
+  // shadow
+  ctx.save();
+  ctx.globalAlpha=0.28;
+  ctx.fillStyle="#000";
+  ctx.beginPath();
+  ctx.ellipse(0, 4, 42-squat*0.3, 10, 0,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  const legH = 70 - squat*0.7;
+
+  // back leg
+  ctx.save();
+  ctx.translate(-10,-legH);
+  ctx.rotate(-legSwing);
+  ctx.fillStyle = pants;
+  roundRect(ctx,-11,0,22,legH,10); ctx.fill();
+  ctx.fillStyle="#3a3550";
+  roundRect(ctx,-13,legH-14,26,16,7); ctx.fill();
+  ctx.restore();
+
+  // back arm
+  ctx.save();
+  ctx.translate(-24,-118);
+  ctx.rotate(-armSwing*0.8);
+  ctx.fillStyle=shirt2;
+  roundRect(ctx,-9,0,18,58,9); ctx.fill();
+  ctx.fillStyle=skin;
+  ctx.beginPath(); ctx.arc(0,58,9,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // front leg
+  ctx.save();
+  ctx.translate(10,-legH);
+  ctx.rotate(legSwing);
+  ctx.fillStyle = "#332c48";
+  roundRect(ctx,-11,0,22,legH,10); ctx.fill();
+  ctx.fillStyle="#4a4468";
+  roundRect(ctx,-13,legH-14,26,16,7); ctx.fill();
+  ctx.restore();
+
+  // torso
+  ctx.save();
+  ctx.translate(0,-120-headBob*0.1);
+  const torsoH = 68 - squat*0.4;
+  const grad = ctx.createLinearGradient(0,-torsoH,0,0);
+  grad.addColorStop(0,shirt); grad.addColorStop(1,shirt2);
+  ctx.fillStyle=grad;
+  roundRect(ctx,-26,-torsoH,52,torsoH,16); ctx.fill();
+  // backpack hint
+  ctx.fillStyle="#d94f4f";
+  roundRect(ctx,10,-torsoH+8,14,torsoH-16,6); ctx.fill();
+  ctx.restore();
+
+  // front arm
+  ctx.save();
+  ctx.translate(24,-118);
+  ctx.rotate(armSwing*0.8);
+  ctx.fillStyle=shirt;
+  roundRect(ctx,-9,0,18,58,9); ctx.fill();
+  ctx.fillStyle=skin;
+  ctx.beginPath(); ctx.arc(0,58,9,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // head
+  ctx.save();
+  ctx.translate(0,-176-headBob*0.2);
+  ctx.fillStyle=skin;
+  ctx.beginPath(); ctx.arc(0,0,26,0,Math.PI*2); ctx.fill();
+  // hair
+  ctx.fillStyle=hair;
+  ctx.beginPath();
+  ctx.arc(0,-4,27,Math.PI*1.05,Math.PI*1.95);
+  ctx.fill();
+  // face
+  if(state==="hit"){
+    ctx.strokeStyle="#3a1f1f"; ctx.lineWidth=3; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(-10,-2); ctx.lineTo(-2,6); ctx.moveTo(-2,-2); ctx.lineTo(-10,6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(2,-2); ctx.lineTo(10,6); ctx.moveTo(10,-2); ctx.lineTo(2,6); ctx.stroke();
+    ctx.strokeStyle="#3a1f1f"; ctx.beginPath(); ctx.arc(0,14,6,0,Math.PI,true); ctx.stroke();
+  } else {
+    ctx.fillStyle="#241a12";
+    ctx.beginPath(); ctx.arc(-8,-1,3,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(8,-1,3,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle="#241a12"; ctx.lineWidth=2.5; ctx.lineCap="round";
+    ctx.beginPath(); ctx.arc(0,6,7,0,Math.PI,false); ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.restore();
+}
+
+/* ---------------- Web Audio (procedural SFX) ---------------- */
+const Sound = {
+  ctx:null, muted:true,
+  init(){
+    if(this.ctx) return;
+    try{ this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ this.ctx=null; }
+  },
+  beep(freq, dur, type, vol, glideTo){
+    if(this.muted || !this.ctx) return;
+    const t0 = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type||"sine";
+    osc.frequency.setValueAtTime(freq, t0);
+    if(glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, t0+dur);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol||0.22, t0+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(t0); osc.stop(t0+dur+0.02);
+  },
+  collect(){ this.beep(760,0.12,"triangle",0.25,1180); },
+  hit(){ this.beep(180,0.35,"sawtooth",0.3,60); },
+  jump(){ this.beep(420,0.12,"square",0.15,620); },
+  gameover(){
+    if(this.muted || !this.ctx) return;
+    [520,420,320,220].forEach((f,i)=>{
+      setTimeout(()=>this.beep(f,0.25,"triangle",0.22), i*130);
+    });
+  },
+  combo(level){ this.beep(600+level*60,0.1,"triangle",0.2,900+level*80); }
+};
+
+/* ---------------- Main game ---------------- */
+const canvas = document.getElementById("gameCanvas");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x2a1f4d, 30, 78);
+
+const camera = new THREE.PerspectiveCamera(62, window.innerWidth/window.innerHeight, 0.1, 200);
+const CAM_OFFSET = new THREE.Vector3(0, 5.4, 8.6);
+camera.position.copy(CAM_OFFSET);
+
+function resize(){
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* Sky */
+const skyGeo = new THREE.SphereGeometry(140,24,16);
+const skyCanvas = makeCanvas(16,256);
+(function(){
+  const ctx = skyCanvas.getContext("2d");
+  const g = ctx.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,"#3b2166");
+  g.addColorStop(0.35,"#7a3f7d");
+  g.addColorStop(0.65,"#ff7d5c");
+  g.addColorStop(1,"#ffc36b");
+  ctx.fillStyle=g; ctx.fillRect(0,0,16,256);
+})();
+const skyTex = new THREE.CanvasTexture(skyCanvas);
+const skyMat = new THREE.MeshBasicMaterial({map:skyTex, side:THREE.BackSide, fog:false});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+/* Sun */
+const sunGeo = new THREE.CircleGeometry(9,32);
+const sunMat = new THREE.MeshBasicMaterial({color:0xffd27a, fog:false, transparent:true, opacity:0.9});
+const sun = new THREE.Mesh(sunGeo, sunMat);
+sun.position.set(0, 18, -95);
+scene.add(sun);
+
+/* Lights */
+const hemi = new THREE.HemisphereLight(0xffd9a0, 0x241a3d, 0.9);
+scene.add(hemi);
+const dirLight = new THREE.DirectionalLight(0xffe3b8, 0.9);
+dirLight.position.set(-8,16,6);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(1024,1024);
+dirLight.shadow.camera.left=-14; dirLight.shadow.camera.right=14;
+dirLight.shadow.camera.top=14; dirLight.shadow.camera.bottom=-14;
+scene.add(dirLight);
+
+/* Ground */
+const roadTex = roadTexture();
+const groundGeo = new THREE.PlaneGeometry(9, 400);
+const groundMat = new THREE.MeshStandardMaterial({map:roadTex, roughness:0.95});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.z = -150;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* Side sidewalks */
+[-1,1].forEach(side=>{
+  const geo = new THREE.PlaneGeometry(6,400);
+  const mat = new THREE.MeshStandardMaterial({color:0x6b6a78, roughness:1});
+  const m = new THREE.Mesh(geo, mat);
+  m.rotation.x = -Math.PI/2;
+  m.position.set(side*7.5, -0.01, -150);
+  m.receiveShadow = true;
+  scene.add(m);
+});
+
+/* Buildings pool (recycled) */
+const buildings = [];
+const BUILD_COUNT = 22;
+const BUILD_SPACING = 14;
+for(let i=0;i<BUILD_COUNT;i++){
+  const side = i%2===0 ? -1 : 1;
+  const w = 6 + Math.random()*3;
+  const h = 14 + Math.random()*26;
+  const geo = new THREE.BoxGeometry(w, h, w*0.8);
+  const tex = buildingTexture(i);
+  const mat = new THREE.MeshStandardMaterial({map:tex, roughness:0.85});
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  mesh.position.set(side*(11+Math.random()*4), h/2, -i*BUILD_SPACING);
+  scene.add(mesh);
+  buildings.push({mesh, side});
+}
+
+/* Crane (background flavor, construction) */
+function addCrane(x,z){
+  const g = new THREE.Group();
+  const poleMat = new THREE.MeshStandardMaterial({color:0xffcc33});
+  const pole = new THREE.Mesh(new THREE.BoxGeometry(0.6,26,0.6), poleMat);
+  pole.position.y=13;
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(16,0.5,0.5), poleMat);
+  arm.position.set(-6,25.5,0);
+  g.add(pole,arm);
+  g.position.set(x,0,z);
+  scene.add(g);
+}
+addCrane(-15,-40);
+addCrane(16,-95);
+
+/* Rent sign (fixed, always behind the runner) */
+const rentSign = new THREE.Group();
+{
+  const postMat = new THREE.MeshStandardMaterial({color:0x3a3450});
+  const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,4.2,8), postMat);
+  post1.position.set(-2.1,2.1,0);
+  const post2 = post1.clone(); post2.position.x = 2.1;
+  const boardTex = signTexture("שכירות", "", "#5b3b8c", "#3a2160");
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(5.2,3), new THREE.MeshStandardMaterial({map:boardTex}));
+  board.position.set(0,4.1,0);
+  rentSign.add(post1,post2,board);
+}
+rentSign.position.set(0, 0, 11);
+rentSign.rotation.y = Math.PI;
+scene.add(rentSign);
+
+/* Apartment sign (target, always receding into the distance) */
+const aptSign = new THREE.Group();
+{
+  const postMat = new THREE.MeshStandardMaterial({color:0x2a2438});
+  const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,7,8), postMat);
+  post1.position.set(-3,3.5,0);
+  const post2 = post1.clone(); post2.position.x = 3;
+  const boardTex = signTexture("קניית דירה 🏠", "", "#2dd4a7", "#0f9c78");
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(7.4,4.2), new THREE.MeshStandardMaterial({map:boardTex}));
+  board.position.set(0,6.6,0);
+  aptSign.add(post1,post2,board);
+}
+scene.add(aptSign);
+
+/* Player */
+const playerGroup = new THREE.Group();
+const charCanvas = makeCharacterCanvas();
+const charTex = new THREE.CanvasTexture(charCanvas);
+const charMat = new THREE.SpriteMaterial({map:charTex, transparent:true});
+const charSprite = new THREE.Sprite(charMat);
+charSprite.scale.set(2.6, 3.05, 1);
+charSprite.position.y = 1.5;
+playerGroup.add(charSprite);
+scene.add(playerGroup);
+
+/* Simple ground contact shadow for player (blob) */
+const blobTex = (function(){
+  const c = makeCanvas(128,64);
+  const ctx = c.getContext("2d");
+  const g = ctx.createRadialGradient(64,32,4,64,32,60);
+  g.addColorStop(0,"rgba(0,0,0,0.45)");
+  g.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=g; ctx.fillRect(0,0,128,64);
+  return new THREE.CanvasTexture(c);
+})();
+const blob = new THREE.Sprite(new THREE.SpriteMaterial({map:blobTex, transparent:true, depthWrite:false}));
+blob.scale.set(2.2,1.1,1);
+blob.position.y = 0.02;
+playerGroup.add(blob);
+
+/* ---------------- Object pools: obstacles & collectibles ---------------- */
+function makeEntityPool(size){
+  const pool = [];
+  for(let i=0;i<size;i++){
+    const spriteMat = new THREE.SpriteMaterial({transparent:true});
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.scale.set(2.1,2.4,1);
+    sprite.visible = false;
+    scene.add(sprite);
+    pool.push({sprite, active:false, data:null, lane:1, z:0, y:0});
+  }
+  return pool;
+}
+const obstaclePool = makeEntityPool(14);
+const collectPool = makeEntityPool(14);
+const textureCache = {expense:{}, saving:{}};
+function getExpenseTex(idx){
+  if(!textureCache.expense[idx]) textureCache.expense[idx] = labelTexture(EXPENSES[idx].emoji, EXPENSES[idx].text, "expense");
+  return textureCache.expense[idx];
+}
+function getSavingTex(idx){
+  if(!textureCache.saving[idx]) textureCache.saving[idx] = labelTexture(SAVINGS[idx].emoji, SAVINGS[idx].text, "saving");
+  return textureCache.saving[idx];
+}
+
+/* ---------------- Game state ---------------- */
+const G = {
+  running:false,
+  distance:0,
+  score:0,
+  timeAlive:0,
+  speed:BASE_SPEED,
+  laneIdx:1,
+  laneX:0,
+  playerY:0,
+  vy:0,
+  isJumping:false,
+  isSliding:false,
+  slideTimer:0,
+  spawnTimer:0,
+  spawnInterval:0.95,
+  combo:0,
+  comboTimer:0,
+  charPhase:0,
+  lastTime:0,
+  hi:0,
+  paused:true
+};
+
+try{ G.hi = parseInt(localStorage.getItem("dira_runner_highscore")||"0",10) || 0; }catch(e){ G.hi = 0; }
+document.getElementById("startHi").textContent = "שיא אישי: " + fmtNum(G.hi);
+document.getElementById("hiScore").textContent = fmtNum(G.hi);
+
+/* ---------------- Input ---------------- */
+const keys = {};
+window.addEventListener("keydown", (e)=>{
+  if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," "].includes(e.key)) e.preventDefault();
+  handleInput(e.key);
+});
+function handleInput(key){
+  if(!G.running) return;
+  if(key==="ArrowLeft" || key==="a" || key==="A") moveLane(1); // RTL: left = toward larger index (screen-left)
+  else if(key==="ArrowRight" || key==="d" || key==="D") moveLane(-1);
+  else if(key==="ArrowUp" || key==="w" || key==="W" || key===" ") doJump();
+  else if(key==="ArrowDown" || key==="s" || key==="S") doSlide();
+}
+function moveLane(dir){
+  G.laneIdx = clamp(G.laneIdx + dir, 0, 2);
+}
+function doJump(){
+  if(G.isJumping || G.isSliding) return;
+  G.isJumping = true;
+  G.vy = JUMP_VELOCITY;
+  Sound.jump();
+}
+function doSlide(){
+  if(G.isJumping || G.isSliding) return;
+  G.isSliding = true;
+  G.slideTimer = SLIDE_DURATION;
+}
+
+/* Touch: swipe + buttons */
+let touchStartX=0, touchStartY=0, touchActive=false;
+canvas.addEventListener("touchstart", (e)=>{
+  const t = e.changedTouches[0];
+  touchStartX = t.clientX; touchStartY = t.clientY; touchActive=true;
+}, {passive:true});
+canvas.addEventListener("touchend", (e)=>{
+  if(!touchActive) return;
+  touchActive=false;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 34){
+    handleInput(dx>0 ? "ArrowRight_screen" : "ArrowLeft_screen");
+    // screen-right swipe -> visually right -> in our RTL mapping screen-right is lane index -1 dir
+    if(dx>0) moveLane(-1); else moveLane(1);
+  } else if(dy < -34){
+    doJump();
+  } else if(dy > 34){
+    doSlide();
+  }
+}, {passive:true});
+
+function isTouchDevice(){
+  return ("ontouchstart" in window) || (navigator.maxTouchPoints>0);
+}
+if(isTouchDevice()){
+  document.getElementById("mobileControls").classList.add("active");
+  document.getElementById("swipeHint").style.display = "block";
+  Sound.muted = true;
+  updateSoundBtn();
+} else {
+  Sound.muted = false;
+}
+document.getElementById("btnLeft").addEventListener("touchstart",(e)=>{e.preventDefault(); moveLane(1);}, {passive:false});
+document.getElementById("btnRight").addEventListener("touchstart",(e)=>{e.preventDefault(); moveLane(-1);}, {passive:false});
+document.getElementById("btnJump").addEventListener("touchstart",(e)=>{e.preventDefault(); doJump();}, {passive:false});
+document.getElementById("btnDuck").addEventListener("touchstart",(e)=>{e.preventDefault(); doSlide();}, {passive:false});
+
+const soundBtn = document.getElementById("soundBtn");
+function updateSoundBtn(){ soundBtn.textContent = Sound.muted ? "🔇" : "🔊"; }
+soundBtn.addEventListener("click", ()=>{
+  Sound.init();
+  Sound.muted = !Sound.muted;
+  updateSoundBtn();
+});
+updateSoundBtn();
+
+/* ---------------- Toasts ---------------- */
+function spawnToast(text, good){
+  const el = document.createElement("div");
+  el.className = "toast " + (good?"good":"bad");
+  el.textContent = text;
+  const x = 50 + (Math.random()*16-8);
+  el.style.left = x+"%";
+  el.style.top = "42%";
+  document.getElementById("toastLayer").appendChild(el);
+  setTimeout(()=> el.remove(), 950);
+}
+
+/* ---------------- Spawning ---------------- */
+function spawnObstacle(){
+  const slot = obstaclePool.find(o=>!o.active);
+  if(!slot) return;
+  const idx = Math.floor(Math.random()*EXPENSES.length);
+  const data = EXPENSES[idx];
+  slot.data = data; slot.dataIdx = idx;
+  slot.active = true;
+  slot.lane = Math.floor(Math.random()*3);
+  slot.z = SPAWN_Z;
+  slot.sprite.material.map = getExpenseTex(idx);
+  slot.sprite.material.needsUpdate = true;
+  slot.sprite.visible = true;
+  if(data.action==="jump"){ slot.y = 0.55; slot.sprite.scale.set(1.9,1.5,1); }
+  else if(data.action==="duck"){ slot.y = 2.55; slot.sprite.scale.set(2.0,1.7,1); }
+  else { slot.y = 1.25; slot.sprite.scale.set(2.1,2.4,1); }
+  positionEntity(slot);
+}
+function spawnCollectible(lane, zOverride){
+  const slot = collectPool.find(o=>!o.active);
+  if(!slot) return;
+  const idx = Math.floor(Math.random()*SAVINGS.length);
+  slot.data = SAVINGS[idx]; slot.dataIdx = idx;
+  slot.active = true;
+  slot.lane = lane!==undefined ? lane : Math.floor(Math.random()*3);
+  slot.z = zOverride!==undefined ? zOverride : SPAWN_Z;
+  slot.y = 1.35;
+  slot.sprite.material.map = getSavingTex(idx);
+  slot.sprite.material.needsUpdate = true;
+  slot.sprite.visible = true;
+  slot.sprite.scale.set(1.7,1.9,1);
+  positionEntity(slot);
+}
+function positionEntity(e){
+  e.sprite.position.set(LANES[e.lane], e.y, e.z);
+}
+
+/* ---------------- Reset / Start ---------------- */
+function resetGame(){
+  G.distance=0; G.score=0; G.timeAlive=0; G.speed=BASE_SPEED;
+  G.laneIdx=1; G.laneX=0; G.playerY=0; G.vy=0;
+  G.isJumping=false; G.isSliding=false; G.slideTimer=0;
+  G.spawnTimer=0; G.spawnInterval=0.95;
+  G.combo=0; G.comboTimer=0; G.charPhase=0;
+  obstaclePool.forEach(o=>{o.active=false; o.sprite.visible=false;});
+  collectPool.forEach(o=>{o.active=false; o.sprite.visible=false;});
+  buildings.forEach((b,i)=>{ b.mesh.position.z = -i*BUILD_SPACING; });
+  document.getElementById("scoreVal").textContent = "0";
+  document.getElementById("timeVal").textContent = "00:00";
+}
+
+function startGame(){
+  resetGame();
+  G.running = true;
+  document.getElementById("startScreen").classList.add("hidden");
+  document.getElementById("gameOverScreen").classList.add("hidden");
+  document.getElementById("hud").classList.remove("hidden");
+  G.lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function endGame(hitData){
+  G.running = false;
+  Sound.hit();
+  setTimeout(()=>Sound.gameover(), 120);
+  document.getElementById("hud").classList.add("hidden");
+
+  const isNewHi = G.score > G.hi;
+  if(isNewHi){
+    G.hi = Math.floor(G.score);
+    try{ localStorage.setItem("dira_runner_highscore", String(G.hi)); }catch(e){}
+  }
+
+  document.getElementById("goTime").textContent = fmtTime(G.timeAlive);
+  document.getElementById("goScore").textContent = fmtNum(G.score);
+  document.getElementById("goDist").textContent = fmtNum(G.distance) + " מ׳";
+  document.getElementById("hiScore").textContent = fmtNum(G.hi);
+  document.getElementById("newHiTag").classList.toggle("hidden", !isNewHi);
+
+  const remaining = Math.floor(40 + G.distance*0.35 + Math.random()*30);
+  document.getElementById("goFlavor").textContent = "הדירה התרחקה בעוד " + remaining + " מטר.";
+
+  if(hitData){
+    document.getElementById("goEmoji").textContent = hitData.emoji;
+    document.getElementById("goPunch").textContent = "...אבל לפחות " + hitData.punch;
+  } else {
+    document.getElementById("goEmoji").textContent = "😅";
+    document.getElementById("goPunch").textContent = "...אבל לפחות ניסית.";
+  }
+
+  document.getElementById("gameOverScreen").classList.remove("hidden");
+}
+
+document.getElementById("startBtn").addEventListener("click", ()=>{
+  Sound.init();
+  startGame();
+});
+document.getElementById("retryBtn").addEventListener("click", ()=>{
+  startGame();
+});
+
+/* ---------------- Combo UI ---------------- */
+const comboEl = document.getElementById("combo");
+function bumpCombo(){
+  G.combo++;
+  G.comboTimer = 2.2;
+  if(G.combo>=2){
+    comboEl.textContent = "Combo x" + G.combo + "! 🔥";
+    comboEl.classList.add("show");
+    Sound.combo(G.combo);
+  }
+}
+function resetCombo(){
+  G.combo = 0;
+  comboEl.classList.remove("show");
+}
+
+/* ---------------- Main loop ---------------- */
+function loop(now){
+  if(!G.running) return;
+  let dt = (now - G.lastTime)/1000;
+  dt = Math.min(dt, 0.05);
+  G.lastTime = now;
+
+  update(dt);
+  render();
+
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  G.timeAlive += dt;
+  G.speed = clamp(BASE_SPEED + G.distance*0.045, BASE_SPEED, MAX_SPEED);
+  G.distance += G.speed*dt;
+  G.score += G.speed*dt*10 + dt*2; // ~10 pts/meter baseline + trickle
+  G.spawnInterval = clamp(0.95 - G.distance*0.0028, 0.42, 0.95);
+
+  // lane movement (smooth)
+  const targetX = LANES[G.laneIdx];
+  G.laneX += (targetX - G.laneX) * Math.min(1, LANE_LERP*dt);
+
+  // jump physics
+  if(G.isJumping){
+    G.vy -= GRAVITY*dt;
+    G.playerY += G.vy*dt;
+    if(G.playerY <= 0){ G.playerY = 0; G.isJumping=false; G.vy=0; }
+  }
+  // slide timer
+  if(G.isSliding){
+    G.slideTimer -= dt;
+    if(G.slideTimer<=0){ G.isSliding=false; }
+  }
+
+  // combo timer decay
+  if(G.combo>0){
+    G.comboTimer -= dt;
+    if(G.comboTimer<=0) resetCombo();
+  }
+
+  // spawn logic
+  G.spawnTimer -= dt;
+  if(G.spawnTimer<=0){
+    G.spawnTimer = G.spawnInterval;
+    const roll = Math.random();
+    if(roll < 0.62){
+      spawnObstacle();
+      if(Math.random()<0.4){
+        const freeLane = Math.floor(Math.random()*3);
+        spawnCollectible(freeLane, SPAWN_Z - 4 - Math.random()*4);
+      }
+    } else {
+      spawnCollectible();
+    }
+  }
+
+  // move entities & collision
+  processEntities(obstaclePool, dt, true);
+  processEntities(collectPool, dt, false);
+
+  // apartment sign recedes as distance grows
+  const aptDist = 55 + G.distance*0.55;
+  aptSign.position.z = -aptDist;
+  aptSign.position.x = Math.sin(G.distance*0.01)*1.2;
+
+  // buildings recycle
+  buildings.forEach(b=>{
+    b.mesh.position.z += G.speed*dt;
+    if(b.mesh.position.z > 12){
+      b.mesh.position.z -= BUILD_COUNT*BUILD_SPACING;
+    }
+  });
+
+  // road scroll
+  roadTex.offset.y -= (G.speed*dt)*0.045;
+
+  // player group position
+  playerGroup.position.x = G.laneX;
+  playerGroup.position.y = 0;
+
+  // character animation state + sprite redraw
+  let state = "run";
+  if(G.isJumping) state="jump";
+  else if(G.isSliding) state="slide";
+  G.charPhase += dt * (10 + G.speed*0.35);
+  const ctx = charCanvas.getContext("2d");
+  drawCharacter(ctx, G.charPhase, state);
+  charTex.needsUpdate = true;
+
+  charSprite.position.y = 1.5 + G.playerY;
+  const baseScaleY = state==="slide" ? 2.15 : 3.05;
+  charSprite.scale.set(2.6, baseScaleY, 1);
+
+  blob.position.x = 0;
+  blob.material.opacity = clamp(1 - G.playerY*0.35, 0.15, 1);
+
+  // camera follow (slight lane lag + bob)
+  camera.position.x += (G.laneX*0.5 - camera.position.x + CAM_OFFSET.x)*Math.min(1,6*dt);
+  camera.position.y = CAM_OFFSET.y + Math.sin(G.charPhase*0.5)*0.05;
+  camera.lookAt(G.laneX*0.3, 1.6 + G.playerY*0.3, -4);
+
+  // sun/sky drift subtle
+  sun.position.x = Math.sin(G.distance*0.002)*4;
+
+  // HUD
+  document.getElementById("scoreVal").textContent = fmtNum(G.score);
+  document.getElementById("timeVal").textContent = fmtTime(G.timeAlive);
+}
+
+function processEntities(pool, dt, isObstacle){
+  for(const e of pool){
+    if(!e.active) continue;
+    e.z += G.speed*dt;
+    positionEntity(e);
+
+    // gentle bob/spin for visual life
+    e.sprite.material.rotation += dt*0.6;
+
+    if(isObstacle){
+      // collision window
+      if(e.z > -1.1 && e.z < 1.1 && e.lane===G.laneIdx){
+        const action = e.data.action;
+        let hit = true;
+        if(action==="jump" && G.isJumping && G.playerY > 0.75) hit=false;
+        if(action==="duck" && G.isSliding) hit=false;
+        if(action==="dodge") hit=true;
+        if(hit){
+          deactivate(e);
+          endGame(e.data);
+          return;
+        } else if(e.z > 1.1){
+          // successfully avoided a jump/duck obstacle in same lane
+          G.score += 40;
+          bumpCombo();
+          spawnToast("✅ נמנעת!", true);
+        }
+      }
+      if(e.z > DESPAWN_Z){
+        if(e.lane!==G.laneIdx){ G.score += 15; } // dodged by lane change
+        deactivate(e);
+      }
+    } else {
+      if(e.z > -1.1 && e.z < 1.1 && e.lane===G.laneIdx){
+        G.score += 60;
+        bumpCombo();
+        spawnToast(e.data.emoji+" +60", true);
+        Sound.collect();
+        deactivate(e);
+        continue;
+      }
+      if(e.z > DESPAWN_Z){ deactivate(e); }
+    }
+  }
+}
+
+function deactivate(e){
+  e.active=false; e.sprite.visible=false; e.z=-999; e.sprite.position.z=-999;
+}
+
+function render(){
+  renderer.render(scene, camera);
+}
+
+/* Idle render loop before game starts (for background ambience on start screen) */
+let idlePhase=0;
+function idleLoop(now){
+  if(G.running) return;
+  idlePhase += 0.016;
+  buildings.forEach(b=>{
+    b.mesh.position.z += 0.05;
+    if(b.mesh.position.z > 12) b.mesh.position.z -= BUILD_COUNT*BUILD_SPACING;
+  });
+  roadTex.offset.y -= 0.002;
+  const ctx = charCanvas.getContext("2d");
+  drawCharacter(ctx, idlePhase*3, "run");
+  charTex.needsUpdate = true;
+  camera.lookAt(0,1.6,-4);
+  render();
+  requestAnimationFrame(idleLoop);
+}
+requestAnimationFrame(idleLoop);
+
+})();
+</script>
+</body>
+</html>
