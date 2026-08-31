@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>המירוץ לדירה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0d1b2e;
+    --bg-1:#132842;
+    --card:#17304f;
+    --card-2:#1d3a5f;
+    --gold:#f2b705;
+    --gold-soft:#f7d154;
+    --mint:#39c2a4;
+    --coral:#ef6a5f;
+    --ink:#eef3f9;
+    --ink-dim:#9db2cc;
+    --line:rgba(238,243,249,0.10);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:var(--bg-0);
+    color:var(--ink);
+    font-family:'Assistant',sans-serif;
+    height:100%;
+    overflow-x:hidden;
+  }
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(57,194,164,0.10), transparent 55%),
+      radial-gradient(circle at 90% 15%, rgba(242,183,5,0.10), transparent 45%),
+      var(--bg-0);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+  }
+
+  .app{
+    width:100%;
+    max-width:460px;
+    min-height:min(760px,92vh);
+    background:var(--bg-1);
+    border-radius:28px;
+    border:1px solid var(--line);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.55);
+    overflow:hidden;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .screen{
+    display:none;
+    flex-direction:column;
+    flex:1;
+    min-height:0;
+    padding:26px 22px 24px;
+    animation:fadeIn .35s ease;
+  }
+  .screen.active{display:flex;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ---------- typography ---------- */
+  h1,h2,h3{font-family:'Rubik',sans-serif;margin:0;}
+  .eyebrow{color:var(--ink-dim);font-size:15px;}
+
+  /* ---------- START SCREEN ---------- */
+  #start{justify-content:center;align-items:center;text-align:center;gap:0;}
+  .start-emoji{font-size:64px;line-height:1;margin-bottom:18px;filter:drop-shadow(0 8px 18px rgba(242,183,5,0.25));}
+  #start h1{font-size:34px;font-weight:900;color:var(--ink);line-height:1.25;}
+  #start .tagline{margin-top:10px;color:var(--ink-dim);font-size:17px;font-weight:500;}
+  .start-stats{
+    display:flex;gap:12px;width:100%;margin-top:34px;
+  }
+  .start-stat{
+    flex:1;background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:16px 10px;text-align:center;
+  }
+  .start-stat .lbl{font-size:13px;color:var(--ink-dim);margin-bottom:6px;}
+  .start-stat .val{font-family:'Rubik',sans-serif;font-weight:800;font-size:18px;}
+  .start-stat.house .val{color:var(--gold-soft);}
+  .start-stat.wallet .val{color:var(--mint);}
+
+  .btn-primary{
+    margin-top:32px;
+    width:100%;
+    border:none;
+    border-radius:16px;
+    padding:18px;
+    font-family:'Rubik',sans-serif;
+    font-weight:700;
+    font-size:19px;
+    background:linear-gradient(135deg,var(--gold-soft),var(--gold));
+    color:#25190a;
+    cursor:pointer;
+    box-shadow:0 12px 24px -10px rgba(242,183,5,0.55);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-primary:active{transform:scale(0.97);box-shadow:0 6px 14px -8px rgba(242,183,5,0.5);}
+
+  /* ---------- GAME SCREEN ---------- */
+  #game{gap:22px;}
+
+  .topbar{display:flex;flex-direction:column;gap:14px;}
+  .stat-row{display:flex;justify-content:space-between;gap:12px;}
+  .stat{flex:1;}
+  .stat .lbl{font-size:13px;color:var(--ink-dim);display:flex;align-items:center;gap:6px;}
+  .stat.capital{text-align:right;}
+  .stat.price{text-align:left;}
+  .stat .num{
+    font-family:'Rubik',sans-serif;font-weight:800;font-size:22px;
+    margin-top:2px;
+    transition:color .2s ease;
+  }
+  .stat.capital .num{color:var(--mint);}
+  .stat.price .num{color:var(--gold-soft);}
+
+  .track-wrap{position:relative;padding-top:6px;}
+  .track-label{font-size:12px;color:var(--ink-dim);margin-bottom:6px;}
+  .track{
+    position:relative;
+    height:14px;
+    background:rgba(238,243,249,0.08);
+    border-radius:999px;
+    overflow:visible;
+  }
+  .track-fill{
+    position:absolute;top:0;right:0;height:100%;
+    border-radius:999px;
+    background:linear-gradient(90deg,var(--mint),#7fe0cb);
+    width:14%;
+    transition:width .6s cubic-bezier(.22,1,.36,1);
+  }
+  .track-marker{
+    position:absolute;top:50%;
+    transform:translate(50%,-50%);
+    right:14%;
+    font-size:22px;
+    transition:right .6s cubic-bezier(.22,1,.36,1);
+    filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+  }
+  .track-house{
+    position:absolute;left:-4px;top:50%;transform:translateY(-50%);
+    font-size:20px;
+  }
+
+  .question-card{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:26px 18px;
+    position:relative;
+    min-height:150px;
+  }
+  .q-emoji{font-size:46px;margin-bottom:12px;}
+  .q-text{font-family:'Rubik',sans-serif;font-weight:700;font-size:21px;line-height:1.4;color:var(--ink);}
+  .q-counter{position:absolute;top:14px;left:16px;font-size:12px;color:var(--ink-dim);}
+
+  .options{display:flex;flex-direction:column;gap:10px;}
+  .option-btn{
+    display:flex;align-items:center;gap:12px;
+    background:var(--card-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:15px 16px;
+    color:var(--ink);
+    font-family:'Assistant',sans-serif;
+    font-weight:600;
+    font-size:16.5px;
+    text-align:right;
+    cursor:pointer;
+    transition:transform .12s ease, background .15s ease, border-color .15s ease;
+  }
+  .option-btn:active{transform:scale(0.98);}
+  .option-btn:not(:disabled):hover{background:#234670;border-color:rgba(238,243,249,0.22);}
+  .option-btn:disabled{opacity:.5;cursor:default;}
+  .option-emoji{font-size:20px;flex-shrink:0;}
+
+  /* floating delta */
+  .float-pop{
+    position:absolute;
+    font-family:'Rubik',sans-serif;
+    font-weight:800;
+    font-size:17px;
+    pointer-events:none;
+    animation:floatUp 1.1s ease forwards;
+    white-space:nowrap;
+  }
+  @keyframes floatUp{
+    0%{opacity:0;transform:translateY(0);}
+    15%{opacity:1;}
+    100%{opacity:0;transform:translateY(-38px);}
+  }
+
+  .toast{
+    position:absolute;
+    left:50%;top:10px;
+    transform:translateX(-50%) translateY(-14px);
+    background:rgba(19,40,66,0.95);
+    border:1px solid var(--line);
+    padding:8px 16px;
+    border-radius:999px;
+    font-size:13px;
+    color:var(--gold-soft);
+    opacity:0;
+    transition:opacity .35s ease, transform .35s ease;
+    pointer-events:none;
+    white-space:nowrap;
+    z-index:5;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .flash-mint{animation:flashMint .5s ease;}
+  @keyframes flashMint{0%{color:#c9fff2;}100%{color:var(--mint);}}
+
+  /* ---------- END SCREENS ---------- */
+  .end-screen{justify-content:center;align-items:center;text-align:center;gap:0;}
+  .end-emoji{font-size:60px;margin-bottom:14px;}
+  .end-screen h2{font-size:28px;font-weight:900;}
+  .end-stats{
+    width:100%;display:flex;gap:12px;margin-top:26px;
+  }
+  .end-stat{
+    flex:1;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 8px;
+  }
+  .end-stat .lbl{font-size:13px;color:var(--ink-dim);margin-bottom:6px;}
+  .end-stat .val{font-family:'Rubik',sans-serif;font-weight:800;font-size:17px;}
+  .end-quote{
+    margin-top:24px;font-size:16px;color:var(--ink);
+    background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;
+    line-height:1.6;font-weight:500;
+  }
+  #win .end-emoji, #win h2{color:var(--gold-soft);}
+  #lose .end-emoji, #lose h2{color:var(--coral);}
+
+  .btn-secondary{
+    margin-top:26px;width:100%;border-radius:16px;padding:16px;
+    font-family:'Rubik',sans-serif;font-weight:700;font-size:17px;
+    background:var(--card-2);color:var(--ink);border:1px solid var(--line);
+    cursor:pointer;transition:transform .15s ease;
+  }
+  .btn-secondary:active{transform:scale(0.97);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- START SCREEN -->
+  <div class="screen active" id="start">
+    <div class="start-emoji">🏠</div>
+    <h1>המירוץ לדירה</h1>
+    <div class="tagline">כמה טוב אתה יודע לחסוך?</div>
+    <div class="start-stats">
+      <div class="start-stat wallet">
+        <div class="lbl">💰 הון התחלתי</div>
+        <div class="val">200,000 ₪</div>
+      </div>
+      <div class="start-stat house">
+        <div class="lbl">🏠 מחיר דירה התחלתי</div>
+        <div class="val">1,400,000 ₪</div>
+      </div>
+    </div>
+    <button class="btn-primary" id="startBtn">🚀 מתחילים</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen" id="game">
+    <div class="topbar">
+      <div class="stat-row">
+        <div class="stat capital">
+          <div class="lbl">💰 ההון שלך</div>
+          <div class="num" id="capitalNum">0 ₪</div>
+        </div>
+        <div class="stat price">
+          <div class="lbl">🏠 מחיר הדירה</div>
+          <div class="num" id="priceNum">0 ₪</div>
+        </div>
+      </div>
+      <div class="track-wrap">
+        <div class="track-label">התקדמות לדירה</div>
+        <div class="track">
+          <div class="track-house">🏠</div>
+          <div class="track-fill" id="trackFill"></div>
+          <div class="track-marker" id="trackMarker">🪙</div>
+        </div>
+        <div class="toast" id="toast"></div>
+      </div>
+    </div>
+
+    <div class="question-card" id="questionCard">
+      <div class="q-counter" id="qCounter"></div>
+      <div class="q-emoji" id="qEmoji">🍔</div>
+      <div class="q-text" id="qText">טוען שאלה...</div>
+    </div>
+
+    <div class="options" id="options"></div>
+  </div>
+
+  <!-- WIN SCREEN -->
+  <div class="screen end-screen" id="win">
+    <div class="end-emoji">🎉</div>
+    <h2>הצלחת! 🏠 הדירה שלך!</h2>
+    <div class="end-stats">
+      <div class="end-stat">
+        <div class="lbl">💰 ההון הסופי שלך</div>
+        <div class="val" id="winCapital">-</div>
+      </div>
+      <div class="end-stat">
+        <div class="lbl">🏠 מחיר הדירה</div>
+        <div class="val" id="winPrice">-</div>
+      </div>
+    </div>
+    <div class="end-stats" style="margin-top:12px;">
+      <div class="end-stat" style="flex:1 1 100%;">
+        <div class="lbl">🎭 טיפוס החוסך שלך</div>
+        <div class="val" id="winType">-</div>
+      </div>
+    </div>
+    <div class="end-quote" id="winQuote">הבחירות הקטנות שלך הצטברו למשהו גדול.</div>
+    <button class="btn-secondary" id="winRestart">🔄 שחק שוב</button>
+  </div>
+
+  <!-- LOSE SCREEN -->
+  <div class="screen end-screen" id="lose">
+    <div class="end-emoji">😬</div>
+    <h2>הדירה ברחה לך</h2>
+    <div class="end-stats">
+      <div class="end-stat">
+        <div class="lbl">💰 ההון הסופי שלך</div>
+        <div class="val" id="loseCapital">-</div>
+      </div>
+      <div class="end-stat">
+        <div class="lbl">🏠 מחיר הדירה</div>
+        <div class="val" id="losePrice">-</div>
+      </div>
+    </div>
+    <div class="end-stats" style="margin-top:12px;">
+      <div class="end-stat" style="flex:1 1 100%;">
+        <div class="lbl">🎭 טיפוס החוסך שלך</div>
+        <div class="val" id="loseType">-</div>
+      </div>
+    </div>
+    <div class="end-quote" id="loseQuote">הוצאות קטנות מצטברות. אולי בפעם הבאה תבחר קצת אחרת...</div>
+    <button class="btn-secondary" id="loseRestart">🔄 נסה שוב</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============ CONFIG — easy to tweak ============ */
+  const CONFIG = {
+    startCapital: 200000,
+    startPrice: 1400000,
+    minQuestions: 8,
+    maxQuestions: 12,
+    inflation: { min: 0.015, max: 0.025 }, // % of price added each round
+    tiers: [
+      { min: 180000, max: 220000 },   // tier 0 - most frugal
+      { min: 70000,  max: 110000 },   // tier 1 - moderately frugal
+      { min: -30000, max: 10000 },    // tier 2 - convenience
+      { min: -110000, max: -70000 }   // tier 3 - splurge
+    ]
+  };
+
+  /* ============ QUESTION BANK ============ */
+  const QUESTIONS = [
+    { emoji:"🍔", text:"ארוחת צהריים בעבודה?", options:[
+      {icon:"🥪", text:"קופסה מהבית"},
+      {icon:"🥙", text:"פלאפל עם קופון"},
+      {icon:"🍕", text:"מזמין משלוח"},
+      {icon:"🍽️", text:"יוצא למסעדה"} ]},
+    { emoji:"☕", text:"קפה בדרך לעבודה?", options:[
+      {icon:"🏠", text:"מכין בבית"},
+      {icon:"☕", text:"קפה מהמשרד"},
+      {icon:"🧋", text:"בית קפה"},
+      {icon:"🥐", text:"בית קפה + מאפה"} ]},
+    { emoji:"🛒", text:"קניות בסופר?", options:[
+      {icon:"📝", text:"מגיע עם רשימה"},
+      {icon:"✅", text:"קונה רק מה שחסר"},
+      {icon:"🚪", text:"נכנס \"רק לקחת משהו\""},
+      {icon:"🛍️", text:"קונה לפי החשק"} ]},
+    { emoji:"🚗", text:"צריך להגיע למקום קרוב?", options:[
+      {icon:"🚶", text:"הולך ברגל"},
+      {icon:"🚲", text:"אופניים"},
+      {icon:"🚌", text:"תחבורה ציבורית"},
+      {icon:"🚕", text:"מונית"} ]},
+    { emoji:"📱", text:"הטלפון שלך עובד מצוין, אבל יצא דגם חדש?", options:[
+      {icon:"📱", text:"נשאר עם הטלפון שלי"},
+      {icon:"⏳", text:"מחכה למבצע"},
+      {icon:"🆕", text:"משדרג לדגם חדש"},
+      {icon:"💎", text:"קונה את הדגם הכי חדש"} ]},
+    { emoji:"👟", text:"צריך נעליים חדשות?", options:[
+      {icon:"🔍", text:"מחפש מבצע"},
+      {icon:"👍", text:"קונה משהו במחיר סביר"},
+      {icon:"❤️", text:"קונה מותג שאוהב"},
+      {icon:"🏷️", text:"קונה כי יש סייל"} ]},
+    { emoji:"🎬", text:"ערב עם חברים?", options:[
+      {icon:"🏠", text:"ערב בבית"},
+      {icon:"🎞️", text:"סרט בבית"},
+      {icon:"🎥", text:"קולנוע"},
+      {icon:"🍸", text:"מסעדה ובר"} ]},
+    { emoji:"🛵", text:"אין כוח לבשל הערב...", options:[
+      {icon:"🍳", text:"מכין משהו מהיר"},
+      {icon:"🍱", text:"אוכל שאריות"},
+      {icon:"🥡", text:"קונה אוכל מוכן"},
+      {icon:"🛵", text:"מזמין משלוח"} ]},
+    { emoji:"🏖️", text:"חופשה שנתית?", options:[
+      {icon:"📊", text:"מתכנן לפי תקציב"},
+      {icon:"🔍", text:"מחפש דיל טוב"},
+      {icon:"🏨", text:"מזמין מלון טוב"},
+      {icon:"✨", text:"הולך על חופשת יוקרה"} ]},
+    { emoji:"🎮", text:"משחק חדש יצא?", options:[
+      {icon:"⏳", text:"מחכה למבצע"},
+      {icon:"💰", text:"קונה כשיהיה מחיר טוב"},
+      {icon:"🚀", text:"קונה ביום ההשקה"},
+      {icon:"➕", text:"קונה גם הרחבות"} ]},
+    { emoji:"🚘", text:"הרכב צריך טיפול?", options:[
+      {icon:"🔍", text:"משווה מחירים"},
+      {icon:"🔧", text:"הולך למוסך הקבוע"},
+      {icon:"🧰", text:"נותן למוסך לטפל בהכול"},
+      {icon:"➕", text:"\"על הדרך\" עוד כמה תיקונים"} ]},
+    { emoji:"👕", text:"סייל בקניון!", options:[
+      {icon:"🚫", text:"לא צריך? לא קונה"},
+      {icon:"👕", text:"קונה פריט אחד"},
+      {icon:"🛍️", text:"מוצא כמה דברים נחמדים"},
+      {icon:"🛒", text:"יוצא עם שקיות"} ]},
+    { emoji:"💳", text:"נשארו לך עוד כמה ימים עד המשכורת?", options:[
+      {icon:"📉", text:"שומר על התקציב"},
+      {icon:"✂️", text:"מצמצם קצת"},
+      {icon:"➡️", text:"ממשיך כרגיל"},
+      {icon:"🤷", text:"\"נסתדר כבר\""} ]},
+    { emoji:"🎁", text:"קיבלת כסף במתנה?", options:[
+      {icon:"🏦", text:"חוסך"},
+      {icon:"⚖️", text:"חוסך חלק ומפנק את עצמי"},
+      {icon:"🛍️", text:"קונה משהו שרציתי"},
+      {icon:"🎉", text:"יוצא למסע קניות"} ]},
+    { emoji:"🏋️", text:"מנוי לחדר כושר?", options:[
+      {icon:"🏠", text:"מתאמן בבית"},
+      {icon:"🎫", text:"מנוי בסיסי"},
+      {icon:"💪", text:"מנוי מלא"},
+      {icon:"⭐", text:"מנוי + שיעורים פרטיים"} ]},
+    { emoji:"🍕", text:"ארוחת ערב משפחתית?", options:[
+      {icon:"🍳", text:"מבשלים בבית"},
+      {icon:"🛒", text:"קונים מצרכים ומכינים יחד"},
+      {icon:"🥡", text:"טייק־אווי"},
+      {icon:"🍽️", text:"מסעדה"} ]},
+    { emoji:"📦", text:"קנייה באינטרנט?", options:[
+      {icon:"⏳", text:"מחכה כמה ימים לפני שקונה"},
+      {icon:"🔍", text:"משווה מחירים"},
+      {icon:"🛒", text:"מזמין"},
+      {icon:"🏷️", text:"\"היה במבצע אז הייתי חייב\""} ]},
+    { emoji:"🎂", text:"יום הולדת של חבר?", options:[
+      {icon:"🎈", text:"מתנה צנועה"},
+      {icon:"🎁", text:"מתנה טובה במחיר סביר"},
+      {icon:"💎", text:"מתנה יקרה"},
+      {icon:"✨", text:"\"שיגיע משהו באמת מיוחד\""} ]},
+    { emoji:"🧸", text:"הילדים רוצים צעצוע חדש?", options:[
+      {icon:"🎂", text:"מחכים ליום הולדת"},
+      {icon:"🔍", text:"מחפשים מבצע"},
+      {icon:"👍", text:"קונים אם המחיר סביר"},
+      {icon:"🥺", text:"קונים כי קשה להגיד לא"} ]},
+    { emoji:"💻", text:"המחשב שלך קצת איטי?", options:[
+      {icon:"🔧", text:"בודק אם אפשר לתקן"},
+      {icon:"⚙️", text:"משדרג רכיב"},
+      {icon:"🆕", text:"קונה מחשב חדש"},
+      {icon:"💎", text:"קונה את הדגם הכי חדש"} ]},
+    { emoji:"🥤", text:"יצאת עם חברים?", options:[
+      {icon:"🚰", text:"מביא בקבוק מהבית"},
+      {icon:"🥤", text:"קונה משהו קטן"},
+      {icon:"☕", text:"יושב בבית קפה"},
+      {icon:"🌃", text:"ערב שלם בחוץ"} ]},
+    { emoji:"🏠", text:"קיבלת העלאה במשכורת?", options:[
+      {icon:"📈", text:"מגדיל את החיסכון"},
+      {icon:"⚖️", text:"חוסך חלק מההעלאה"},
+      {icon:"🙂", text:"משפר קצת את רמת החיים"},
+      {icon:"🎉", text:"סוף סוף \"מרשה לעצמי\""} ]},
+    { emoji:"🛋️", text:"צריך רהיט חדש לבית?", options:[
+      {icon:"♻️", text:"יד שנייה"},
+      {icon:"⏳", text:"מחכה למבצע"},
+      {icon:"🆕", text:"קונה חדש"},
+      {icon:"💎", text:"קונה את הדגם היוקרתי"} ]},
+    { emoji:"🚕", text:"פספסת את האוטובוס?", options:[
+      {icon:"🕐", text:"מחכה לאוטובוס הבא"},
+      {icon:"🚐", text:"מזמין מונית שירות"},
+      {icon:"🚕", text:"מונית"},
+      {icon:"💨", text:"\"אין לי זמן\" ומזמין מונית יקרה"} ]},
+    { emoji:"🛍️", text:"קיבלת הודעה: \"20% הנחה רק היום!\"", options:[
+      {icon:"🙈", text:"מתעלם"},
+      {icon:"🤔", text:"בודק אם באמת צריך משהו"},
+      {icon:"👀", text:"נכנס לראות מה יש"},
+      {icon:"🏃", text:"קונה לפני שהמבצע נגמר"} ]}
+  ];
+
+  /* ============ FLAVOR CONTENT ============ */
+  const SAVER_TYPES = [
+    { emoji:"🐿️", label:"החסכן האולטימטיבי — הביס האחרון בקופסה שלך שווה יותר מהמנה שלמה במסעדה" },
+    { emoji:"🧠", label:"החסכן השקול — לא קמצן, סתם עושה חשבון לפני שהוא שולף כרטיס" },
+    { emoji:"🤷", label:"האמצע ההוא — לא חוסך, לא מפוצץ, פשוט זורם" },
+    { emoji:"🎉", label:"חי את הרגע — הארנק נושם, הלב שמח, החשבון בבנק... בפעם הבאה" }
+  ];
+
+  const WIN_QUOTES = [
+    "הבחירות הקטנות שלך הצטברו למשהו גדול.",
+    "שקל ועוד שקל שווים דירה. אולי אפילו שתיים.",
+    "מי שהיה נאמן לקופסה מהבית, היום נאמן למשכנתא."
+  ];
+
+  const LOSE_QUOTES = [
+    "לא הצלחת להגיע לדירה, אבל לפחות חגגת כמו שצריך.",
+    "הדירה ברחה, אבל הבטן הייתה מלאה עד הסוף.",
+    "המסעדות ניצחו הפעם. הן תמיד מנצחות."
+  ];
+
+  function pickSaverType(tierCounts){
+    let best = 0;
+    for(let i=1;i<tierCounts.length;i++){
+      if(tierCounts[i] > tierCounts[best]) best = i;
+    }
+    return SAVER_TYPES[best];
+  }
+
+  function pickRandom(arr){
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+
+  /* ============ STATE ============ */
+  let state = {};
+
+  const $ = id => document.getElementById(id);
+  const fmt = n => Math.round(n).toLocaleString('he-IL') + ' ₪';
+  const rand = (min,max) => Math.random()*(max-min)+min;
+  const randInt = (min,max) => Math.floor(rand(min,max+1));
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+
+  function newGame(){
+    const count = randInt(CONFIG.minQuestions, CONFIG.maxQuestions);
+    state = {
+      capital: CONFIG.startCapital,
+      price: CONFIG.startPrice,
+      queue: shuffle(QUESTIONS).slice(0, count),
+      index: 0,
+      total: count,
+      tierCounts: [0,0,0,0]
+    };
+    updateStats(false);
+    renderQuestion();
+    showScreen('game');
+  }
+
+  function updateStats(animate){
+    const capEl = $('capitalNum');
+    const priceEl = $('priceNum');
+    capEl.textContent = fmt(state.capital);
+    priceEl.textContent = fmt(state.price);
+
+    const pct = Math.max(4, Math.min(100, (state.capital/state.price)*100));
+    $('trackFill').style.width = pct + '%';
+    $('trackMarker').style.right = pct + '%';
+
+    if(animate){
+      capEl.classList.remove('flash-mint');
+      void capEl.offsetWidth;
+      capEl.classList.add('flash-mint');
+    }
+  }
+
+  function renderQuestion(){
+    const q = state.queue[state.index];
+    $('qCounter').textContent = 'שאלה ' + (state.index+1) + ' מתוך ' + state.total;
+    $('qEmoji').textContent = q.emoji;
+    $('qText').textContent = q.text;
+
+    const optWrap = $('options');
+    optWrap.innerHTML = '';
+    const shuffledOpts = shuffle(q.options.map((opt, tier) => ({ opt, tier })));
+    shuffledOpts.forEach(({opt, tier}) => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn';
+      btn.innerHTML = '<span class="option-emoji">'+opt.icon+'</span><span>'+opt.text+'</span>';
+      btn.addEventListener('click', () => chooseOption(tier, btn));
+      optWrap.appendChild(btn);
+    });
+  }
+
+  function chooseOption(tier, btnEl){
+    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+
+    const range = CONFIG.tiers[tier];
+    const delta = rand(range.min, range.max);
+    state.capital += delta;
+    state.tierCounts[tier]++;
+
+    showFloatPop(btnEl, delta);
+
+    // inflation
+    const infl = state.price * rand(CONFIG.inflation.min, CONFIG.inflation.max);
+    state.price += infl;
+
+    setTimeout(() => {
+      updateStats(true);
+      showToast('🏠 מחיר הדירה עלה');
+    }, 250);
+
+    setTimeout(() => {
+      if(state.capital >= state.price){
+        finishGame(true);
+        return;
+      }
+      state.index++;
+      if(state.index >= state.total){
+        finishGame(false);
+        return;
+      }
+      renderQuestion();
+    }, 1200);
+  }
+
+  function showFloatPop(btnEl, delta){
+    const pop = document.createElement('div');
+    pop.className = 'float-pop';
+    const positive = delta >= 0;
+    pop.style.color = positive ? '#7fe0cb' : '#ff9a90';
+    pop.textContent = (positive ? '+' : '−') + Math.round(Math.abs(delta)).toLocaleString('he-IL') + ' ₪';
+
+    const rect = btnEl.getBoundingClientRect();
+    const cardRect = $('questionCard').getBoundingClientRect();
+    pop.style.left = (rect.left - cardRect.left + rect.width/2 - 40) + 'px';
+    pop.style.top = '8px';
+
+    $('questionCard').appendChild(pop);
+    setTimeout(() => pop.remove(), 1150);
+  }
+
+  function showToast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 900);
+  }
+
+  function finishGame(won){
+    const type = pickSaverType(state.tierCounts);
+    const typeText = type.emoji + ' ' + type.label;
+
+    if(won){
+      $('winCapital').textContent = fmt(state.capital);
+      $('winPrice').textContent = fmt(state.price);
+      $('winType').textContent = typeText;
+      $('winQuote').textContent = pickRandom(WIN_QUOTES);
+      showScreen('win');
+    } else {
+      $('loseCapital').textContent = fmt(state.capital);
+      $('losePrice').textContent = fmt(state.price);
+      $('loseType').textContent = typeText;
+      $('loseQuote').textContent = pickRandom(LOSE_QUOTES);
+      showScreen('lose');
+    }
+  }
+
+  $('startBtn').addEventListener('click', newGame);
+  $('winRestart').addEventListener('click', () => showScreen('start'));
+  $('loseRestart').addEventListener('click', () => showScreen('start'));
+
+})();
+</script>
+</body>
+</html>
