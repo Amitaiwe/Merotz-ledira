@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>המירוץ לדירה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800;900&family=Assistant:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --bg-0:#0d1b2e;
+    --bg-1:#132842;
+    --card:#17304f;
+    --card-2:#1d3a5f;
+    --gold:#f2b705;
+    --gold-soft:#f7d154;
+    --mint:#39c2a4;
+    --coral:#ef6a5f;
+    --ink:#eef3f9;
+    --ink-dim:#9db2cc;
+    --line:rgba(238,243,249,0.10);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:var(--bg-0);
+    color:var(--ink);
+    font-family:'Assistant',sans-serif;
+    height:100%;
+    overflow-x:hidden;
+  }
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(57,194,164,0.10), transparent 55%),
+      radial-gradient(circle at 90% 15%, rgba(242,183,5,0.10), transparent 45%),
+      var(--bg-0);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:18px;
+  }
+
+  .app{
+    width:100%;
+    max-width:460px;
+    min-height:min(760px,92vh);
+    background:var(--bg-1);
+    border-radius:28px;
+    border:1px solid var(--line);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.55);
+    overflow:hidden;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+  }
+
+  .screen{
+    display:none;
+    flex-direction:column;
+    flex:1;
+    min-height:0;
+    padding:26px 22px 24px;
+    animation:fadeIn .35s ease;
+    position:relative;
+  }
+  .screen.active{display:flex;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  h1,h2,h3{font-family:'Rubik',sans-serif;margin:0;}
+
+  /* ---------- START SCREEN ---------- */
+  #start{justify-content:center;align-items:center;text-align:center;gap:0;padding-bottom:44px;}
+  .start-emoji{font-size:54px;line-height:1;margin-bottom:14px;filter:drop-shadow(0 8px 18px rgba(242,183,5,0.25));}
+  #start h1{font-size:32px;font-weight:900;color:var(--ink);line-height:1.25;}
+  #start .tagline{margin-top:8px;color:var(--ink-dim);font-size:16px;font-weight:500;}
+  .start-stats{display:flex;gap:12px;width:100%;margin-top:26px;}
+  .start-stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 10px;text-align:center;}
+  .start-stat .lbl{font-size:12.5px;color:var(--ink-dim);margin-bottom:6px;}
+  .start-stat .val{font-family:'Rubik',sans-serif;font-weight:800;font-size:17px;}
+  .start-stat.house .val{color:var(--gold-soft);}
+  .start-stat.wallet .val{color:var(--mint);}
+  .start-note{margin-top:14px;color:var(--ink-dim);font-size:12.5px;line-height:1.5;}
+
+  .btn-primary{
+    margin-top:22px;width:100%;border:none;border-radius:16px;padding:17px;
+    font-family:'Rubik',sans-serif;font-weight:700;font-size:19px;
+    background:linear-gradient(135deg,var(--gold-soft),var(--gold));
+    color:#25190a;cursor:pointer;
+    box-shadow:0 12px 24px -10px rgba(242,183,5,0.55);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-primary:active{transform:scale(0.97);box-shadow:0 6px 14px -8px rgba(242,183,5,0.5);}
+
+  .global-stats{
+    margin-top:20px;width:100%;display:flex;gap:8px;
+  }
+  .global-stat{
+    flex:1;background:rgba(238,243,249,0.04);border:1px solid var(--line);border-radius:12px;
+    padding:10px 4px;text-align:center;
+  }
+  .global-stat .g-val{font-family:'Rubik',sans-serif;font-weight:800;font-size:14.5px;color:var(--ink);}
+  .global-stat .g-lbl{font-size:10.5px;color:var(--ink-dim);margin-top:3px;}
+
+  .version-tag{
+    position:absolute;bottom:12px;left:0;right:0;text-align:center;
+    font-size:11px;color:var(--ink-dim);opacity:.55;letter-spacing:.03em;
+  }
+
+  /* ---------- GAME SCREEN ---------- */
+  #game{gap:20px;}
+
+  .topbar{display:flex;flex-direction:column;gap:14px;}
+  .stat-row{display:flex;justify-content:space-between;gap:12px;}
+  .stat{flex:1;}
+  .stat .lbl{font-size:13px;color:var(--ink-dim);display:flex;align-items:center;gap:6px;}
+  .stat.capital{text-align:right;}
+  .stat.price{text-align:left;}
+  .stat .num{font-family:'Rubik',sans-serif;font-weight:800;font-size:20px;margin-top:2px;transition:color .2s ease;}
+  .stat.capital .num{color:var(--mint);}
+  .stat.price .num{color:var(--gold-soft);}
+
+  .track-wrap{position:relative;padding-top:6px;}
+  .track-label{font-size:12px;color:var(--ink-dim);margin-bottom:6px;}
+  .track{position:relative;height:14px;background:rgba(238,243,249,0.08);border-radius:999px;overflow:visible;}
+  .track-fill{position:absolute;top:0;right:0;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--mint),#7fe0cb);width:14%;transition:width .6s cubic-bezier(.22,1,.36,1);}
+  .track-marker{position:absolute;top:50%;transform:translate(50%,-50%);right:14%;font-size:20px;transition:right .6s cubic-bezier(.22,1,.36,1);filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
+  .track-house{position:absolute;left:-4px;top:50%;transform:translateY(-50%);font-size:18px;}
+
+  .main-card{
+    flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
+    background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px 18px;
+    position:relative;min-height:170px;transition:box-shadow .3s ease;
+  }
+  .main-card.flash-win{animation:cardFlashWin .6s ease;}
+  .main-card.flash-lose{animation:cardFlashLose .5s ease;}
+  @keyframes cardFlashWin{0%{box-shadow:0 0 0 0 rgba(57,194,164,0);}30%{box-shadow:0 0 0 8px rgba(57,194,164,0.25);}100%{box-shadow:0 0 0 0 rgba(57,194,164,0);}}
+  @keyframes cardFlashLose{
+    0%,100%{transform:translateX(0);box-shadow:0 0 0 0 rgba(239,106,95,0);}
+    20%{transform:translateX(-6px);box-shadow:0 0 0 8px rgba(239,106,95,0.22);}
+    40%{transform:translateX(6px);}
+    60%{transform:translateX(-4px);}
+    80%{transform:translateX(4px);}
+  }
+
+  .q-emoji{font-size:42px;margin-bottom:10px;}
+  .q-text{font-family:'Rubik',sans-serif;font-weight:700;font-size:20px;line-height:1.4;color:var(--ink);}
+  .q-counter{position:absolute;top:14px;left:16px;font-size:12px;color:var(--ink-dim);}
+
+  .options{display:flex;flex-direction:column;gap:10px;}
+  .option-btn{
+    display:flex;align-items:center;gap:10px;background:var(--card-2);border:1px solid var(--line);
+    border-radius:14px;padding:15px 16px;color:var(--ink);font-family:'Assistant',sans-serif;
+    font-weight:600;font-size:16.5px;text-align:right;cursor:pointer;
+    transition:transform .12s ease, background .15s ease, border-color .15s ease;
+  }
+  .option-btn:active{transform:scale(0.98);}
+  .option-btn:not(:disabled):hover{background:#234670;border-color:rgba(238,243,249,0.22);}
+  .option-btn:disabled{opacity:.5;cursor:default;}
+
+  /* opportunity card */
+  .opp-label{font-size:12px;color:var(--gold-soft);letter-spacing:.02em;margin-bottom:4px;font-weight:700;}
+  .opp-title{font-family:'Rubik',sans-serif;font-weight:800;font-size:21px;margin-bottom:2px;}
+  .opp-risk{font-size:13px;color:var(--ink-dim);margin-bottom:16px;}
+  .opp-body{display:flex;align-items:center;gap:18px;width:100%;justify-content:center;margin-bottom:14px;}
+  .gauge{
+    width:84px;height:84px;border-radius:50%;
+    background:conic-gradient(var(--mint) calc(var(--pct)*1%), rgba(255,255,255,0.10) 0);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    transition:background .3s ease;
+  }
+  .gauge.spinning{animation:gaugeSpin 1s linear infinite;}
+  @keyframes gaugeSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .gauge-inner{width:66px;height:66px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .gauge-inner .pct{font-family:'Rubik',sans-serif;font-weight:800;font-size:17px;color:var(--mint);}
+  .gauge-inner .pct-lbl{font-size:9px;color:var(--ink-dim);}
+  .opp-figures{text-align:right;}
+  .opp-figures .row{margin-bottom:6px;}
+  .opp-figures .row .lbl{font-size:12px;color:var(--ink-dim);}
+  .opp-figures .row .amt{font-family:'Rubik',sans-serif;font-weight:800;font-size:16px;}
+  .opp-figures .cost .amt{color:var(--coral);}
+  .opp-figures .gain .amt{color:var(--mint);}
+
+  .opp-actions{display:flex;flex-direction:column;gap:10px;}
+  .btn-invest{
+    border:none;border-radius:14px;padding:16px;font-family:'Rubik',sans-serif;font-weight:700;font-size:16.5px;
+    background:linear-gradient(135deg,var(--gold-soft),var(--gold));color:#25190a;cursor:pointer;
+    transition:transform .12s ease;
+  }
+  .btn-invest:active{transform:scale(0.97);}
+  .btn-skip{
+    border:1px solid var(--line);border-radius:14px;padding:14px;font-family:'Assistant',sans-serif;font-weight:600;font-size:15px;
+    background:transparent;color:var(--ink-dim);cursor:pointer;transition:transform .12s ease;
+  }
+  .btn-skip:active{transform:scale(0.97);}
+  .btn-invest:disabled, .btn-skip:disabled{opacity:.5;cursor:default;}
+
+  .opp-result{font-family:'Rubik',sans-serif;font-weight:800;font-size:18px;margin-top:14px;min-height:24px;}
+  .opp-result.win{color:var(--mint);}
+  .opp-result.lose{color:var(--coral);}
+  .opp-result.pending{color:var(--ink-dim);font-weight:600;font-size:14.5px;}
+
+  .toast{
+    position:absolute;left:50%;top:10px;transform:translateX(-50%) translateY(-14px);
+    background:rgba(19,40,66,0.95);border:1px solid var(--line);padding:8px 16px;border-radius:999px;
+    font-size:13px;color:var(--gold-soft);opacity:0;transition:opacity .35s ease, transform .35s ease;
+    pointer-events:none;white-space:nowrap;z-index:5;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .flash-mint{animation:flashMint .5s ease;}
+  @keyframes flashMint{0%{color:#c9fff2;}100%{color:var(--mint);}}
+
+  /* ---------- END SCREENS ---------- */
+  .end-screen{justify-content:center;align-items:center;text-align:center;gap:0;}
+  .end-emoji{font-size:52px;margin-bottom:12px;}
+  .end-screen h2{font-size:26px;font-weight:900;}
+  .end-stats{width:100%;display:flex;gap:12px;margin-top:22px;}
+  .end-stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 8px;}
+  .end-stat .lbl{font-size:12px;color:var(--ink-dim);margin-bottom:6px;}
+  .end-stat .val{font-family:'Rubik',sans-serif;font-weight:800;font-size:16px;}
+  .end-quote{
+    margin-top:18px;font-size:15.5px;color:var(--ink);background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:15px;line-height:1.6;font-weight:500;
+  }
+  #win .end-emoji, #win h2{color:var(--gold-soft);}
+  #lose .end-emoji, #lose h2{color:var(--coral);}
+
+  .btn-secondary{
+    margin-top:22px;width:100%;border-radius:16px;padding:16px;font-family:'Rubik',sans-serif;font-weight:700;font-size:17px;
+    background:var(--card-2);color:var(--ink);border:1px solid var(--line);cursor:pointer;transition:transform .15s ease;
+  }
+  .btn-secondary:active{transform:scale(0.97);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- START SCREEN -->
+  <div class="screen active" id="start">
+    <div class="start-emoji">🏠</div>
+    <h1>המירוץ לדירה</h1>
+    <div class="tagline">כמה טוב אתה יודע לחסוך?</div>
+    <div class="start-stats">
+      <div class="start-stat wallet">
+        <div class="lbl">💰 הון התחלתי</div>
+        <div class="val">200,000 ₪</div>
+      </div>
+      <div class="start-stat house">
+        <div class="lbl">🏠 מחיר דירה התחלתי</div>
+        <div class="val">1,400,000 ₪</div>
+      </div>
+    </div>
+    <div class="start-note">לאורך הדרך יצוצו גם כמה הזדמנויות השקעה. הן אופציונליות ותלויות מזל.</div>
+    <button class="btn-primary" id="startBtn">מתחילים</button>
+
+    <div class="global-stats">
+      <div class="global-stat">
+        <div class="g-val" id="gGames">-</div>
+        <div class="g-lbl">שיחקו</div>
+      </div>
+      <div class="global-stat">
+        <div class="g-val" id="gWinRate">-</div>
+        <div class="g-lbl">אחוז ניצחון</div>
+      </div>
+      <div class="global-stat">
+        <div class="g-val" id="gFastest">-</div>
+        <div class="g-lbl">שיא תורות</div>
+      </div>
+    </div>
+
+    <div class="version-tag">V1.4</div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div class="screen" id="game">
+    <div class="topbar">
+      <div class="stat-row">
+        <div class="stat capital">
+          <div class="lbl">💰 ההון שלך</div>
+          <div class="num" id="capitalNum">0 ₪</div>
+        </div>
+        <div class="stat price">
+          <div class="lbl">🏠 מחיר הדירה</div>
+          <div class="num" id="priceNum">0 ₪</div>
+        </div>
+      </div>
+      <div class="track-wrap">
+        <div class="track-label">התקדמות לדירה</div>
+        <div class="track">
+          <div class="track-house">🏠</div>
+          <div class="track-fill" id="trackFill"></div>
+          <div class="track-marker" id="trackMarker">🪙</div>
+        </div>
+        <div class="toast" id="toast"></div>
+      </div>
+    </div>
+
+    <div class="main-card" id="mainCard">
+      <div class="q-counter" id="qCounter"></div>
+      <div id="cardContent"></div>
+    </div>
+
+    <div class="options" id="options"></div>
+  </div>
+
+  <!-- WIN SCREEN -->
+  <div class="screen end-screen" id="win">
+    <div class="end-emoji">🎉</div>
+    <h2>הצלחת! הדירה שלך</h2>
+    <div class="end-stats">
+      <div class="end-stat">
+        <div class="lbl">ההון הסופי שלך</div>
+        <div class="val" id="winCapital">-</div>
+      </div>
+      <div class="end-stat">
+        <div class="lbl">מחיר הדירה</div>
+        <div class="val" id="winPrice">-</div>
+      </div>
+    </div>
+    <div class="end-stats" style="margin-top:12px;">
+      <div class="end-stat" style="flex:1 1 100%;">
+        <div class="lbl">טיפוס החוסך שלך</div>
+        <div class="val" id="winType">-</div>
+      </div>
+    </div>
+    <div class="end-quote" id="winQuote">הבחירות הקטנות שלך הצטברו למשהו גדול.</div>
+    <button class="btn-secondary" id="winRestart">שחק שוב</button>
+  </div>
+
+  <!-- LOSE SCREEN -->
+  <div class="screen end-screen" id="lose">
+    <div class="end-emoji">😬</div>
+    <h2>הדירה ברחה לך</h2>
+    <div class="end-stats">
+      <div class="end-stat">
+        <div class="lbl">ההון הסופי שלך</div>
+        <div class="val" id="loseCapital">-</div>
+      </div>
+      <div class="end-stat">
+        <div class="lbl">מחיר הדירה</div>
+        <div class="val" id="losePrice">-</div>
+      </div>
+    </div>
+    <div class="end-stats" style="margin-top:12px;">
+      <div class="end-stat" style="flex:1 1 100%;">
+        <div class="lbl">טיפוס החוסך שלך</div>
+        <div class="val" id="loseType">-</div>
+      </div>
+    </div>
+    <div class="end-quote" id="loseQuote">הוצאות קטנות מצטברות. אולי בפעם הבאה תבחר קצת אחרת...</div>
+    <button class="btn-secondary" id="loseRestart">נסה שוב</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============ FIREBASE ============ */
+  const firebaseConfig = {
+    apiKey: "AIzaSyAhcvYFqnIjq_7ciqOl26E6J4pXBDLHdSc",
+    authDomain: "race2apt.firebaseapp.com",
+    databaseURL: "https://race2apt-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "race2apt",
+    storageBucket: "race2apt.firebasestorage.app",
+    messagingSenderId: "713805597029",
+    appId: "1:713805597029:web:3fcb4f8833cd2a318c398c",
+    measurementId: "G-KXEXV5LDZ7"
+  };
+
+  let fbReady = false;
+  let fbDb = null;
+
+  try{
+    firebase.initializeApp(firebaseConfig);
+    fbDb = firebase.database();
+    firebase.auth().signInAnonymously().catch(function(err){
+      console.warn('Firebase anonymous auth failed', err);
+    });
+    firebase.auth().onAuthStateChanged(function(user){
+      if(user){
+        fbReady = true;
+        attachStatsListener();
+      }
+    });
+  }catch(e){
+    console.warn('Firebase init failed', e);
+  }
+
+  function attachStatsListener(){
+    if(!fbDb) return;
+    try{
+      fbDb.ref('stats').on('value', function(snap){
+        const val = snap.val() || {};
+        const games = val.gamesPlayed || 0;
+        const wins = val.gamesWon || 0;
+        const fastest = val.fastestWin || null;
+        $('gGames').textContent = games > 0 ? games.toLocaleString('he-IL') : '0';
+        $('gWinRate').textContent = games > 0 ? Math.round((wins/games)*100) + '%' : '-';
+        $('gFastest').textContent = fastest ? fastest : '-';
+      }, function(err){
+        console.warn('stats listener error', err);
+      });
+    }catch(e){
+      console.warn('attachStatsListener failed', e);
+    }
+  }
+
+  function recordGamePlayed(){
+    if(!fbReady || !fbDb) return;
+    try{
+      fbDb.ref('stats/gamesPlayed').transaction(function(cur){ return (cur||0)+1; });
+    }catch(e){ console.warn(e); }
+  }
+
+  function recordGameWon(turnsTaken){
+    if(!fbReady || !fbDb) return;
+    try{
+      fbDb.ref('stats/gamesWon').transaction(function(cur){ return (cur||0)+1; });
+      fbDb.ref('stats/fastestWin').transaction(function(cur){
+        if(cur === null || turnsTaken < cur) return turnsTaken;
+        return cur;
+      });
+    }catch(e){ console.warn(e); }
+  }
+
+  /* ============ CONFIG ============ */
+  const CONFIG = {
+    startCapital: 200000,
+    startPrice: 1400000,
+    minLength: 28,
+    maxLength: 32,
+    opportunityEvery: 7,
+    inflation: { min: 0.015, max: 0.025 },
+    tiers: [
+      { min: 8000,  max: 12000 },
+      { min: 3000,  max: 6000 },
+      { min: -1500, max: 1500 },
+      { min: -10000, max: -6000 }
+    ],
+    investCostShareOfCapitalCap: 0.6
+  };
+
+  /* ============ QUESTION BANK ============ */
+  const QUESTIONS = [
+    { emoji:"🍔", text:"ארוחת צהריים בעבודה?", options:["קופסה מהבית","פלאפל עם קופון","מזמין משלוח","יוצא למסעדה"]},
+    { emoji:"☕", text:"קפה בדרך לעבודה?", options:["מכין בבית","קפה מהמשרד","בית קפה","בית קפה + מאפה"]},
+    { emoji:"🛒", text:"קניות בסופר?", options:["מגיע עם רשימה","קונה רק מה שחסר","נכנס \"רק לקחת משהו\"","קונה לפי החשק"]},
+    { emoji:"🚗", text:"צריך להגיע למקום קרוב?", options:["הולך ברגל","אופניים","תחבורה ציבורית","מונית"]},
+    { emoji:"📱", text:"הטלפון שלך עובד מצוין, אבל יצא דגם חדש?", options:["נשאר עם הטלפון שלי","מחכה למבצע","משדרג לדגם חדש","קונה את הדגם הכי חדש"]},
+    { emoji:"👟", text:"צריך נעליים חדשות?", options:["מחפש מבצע","קונה משהו במחיר סביר","קונה מותג שאוהב","קונה כי יש סייל"]},
+    { emoji:"🎬", text:"ערב עם חברים?", options:["ערב בבית","סרט בבית","קולנוע","מסעדה ובר"]},
+    { emoji:"🛵", text:"אין כוח לבשל הערב...", options:["מכין משהו מהיר","אוכל שאריות","קונה אוכל מוכן","מזמין משלוח"]},
+    { emoji:"🏖️", text:"חופשה שנתית?", options:["מתכנן לפי תקציב","מחפש דיל טוב","מזמין מלון טוב","הולך על חופשת יוקרה"]},
+    { emoji:"🎮", text:"משחק חדש יצא?", options:["מחכה למבצע","קונה כשיהיה מחיר טוב","קונה ביום ההשקה","קונה גם הרחבות"]},
+    { emoji:"🚘", text:"הרכב צריך טיפול?", options:["משווה מחירים","הולך למוסך הקבוע","נותן למוסך לטפל בהכול","\"על הדרך\" עוד כמה תיקונים"]},
+    { emoji:"👕", text:"סייל בקניון!", options:["לא צריך? לא קונה","קונה פריט אחד","מוצא כמה דברים נחמדים","יוצא עם שקיות"]},
+    { emoji:"💳", text:"נשארו לך עוד כמה ימים עד המשכורת?", options:["שומר על התקציב","מצמצם קצת","ממשיך כרגיל","\"נסתדר כבר\""]},
+    { emoji:"🎁", text:"קיבלת כסף במתנה?", options:["חוסך","חוסך חלק ומפנק את עצמי","קונה משהו שרציתי","יוצא למסע קניות"]},
+    { emoji:"🏋️", text:"מנוי לחדר כושר?", options:["מתאמן בבית","מנוי בסיסי","מנוי מלא","מנוי + שיעורים פרטיים"]},
+    { emoji:"🍕", text:"ארוחת ערב משפחתית?", options:["מבשלים בבית","קונים מצרכים ומכינים יחד","טייק־אווי","מסעדה"]},
+    { emoji:"📦", text:"קנייה באינטרנט?", options:["מחכה כמה ימים לפני שקונה","משווה מחירים","מזמין","\"היה במבצע אז הייתי חייב\""]},
+    { emoji:"🎂", text:"יום הולדת של חבר?", options:["מתנה צנועה","מתנה טובה במחיר סביר","מתנה יקרה","\"שיגיע משהו באמת מיוחד\""]},
+    { emoji:"🧸", text:"הילדים רוצים צעצוע חדש?", options:["מחכים ליום הולדת","מחפשים מבצע","קונים אם המחיר סביר","קונים כי קשה להגיד לא"]},
+    { emoji:"💻", text:"המחשב שלך קצת איטי?", options:["בודק אם אפשר לתקן","משדרג רכיב","קונה מחשב חדש","קונה את הדגם הכי חדש"]},
+    { emoji:"🥤", text:"יצאת עם חברים?", options:["מביא בקבוק מהבית","קונה משהו קטן","יושב בבית קפה","ערב שלם בחוץ"]},
+    { emoji:"🏠", text:"קיבלת העלאה במשכורת?", options:["מגדיל את החיסכון","חוסך חלק מההעלאה","משפר קצת את רמת החיים","סוף סוף \"מרשה לעצמי\""]},
+    { emoji:"🛋️", text:"צריך רהיט חדש לבית?", options:["יד שנייה","מחכה למבצע","קונה חדש","קונה את הדגם היוקרתי"]},
+    { emoji:"🚕", text:"פספסת את האוטובוס?", options:["מחכה לאוטובוס הבא","מזמין מונית שירות","מונית","\"אין לי זמן\" ומזמין מונית יקרה"]},
+    { emoji:"🛍️", text:"קיבלת הודעה: \"20% הנחה רק היום!\"", options:["מתעלם","בודק אם באמת צריך משהו","נכנס לראות מה יש","קונה לפני שהמבצע נגמר"]},
+    { emoji:"🥐", text:"הגעת מוקדם לעבודה ואתה רעב", options:["אוכל משהו שהבאתי מהבית","קונה מאפה במאפייה","יושב בבית קפה","מזמין ארוחת בוקר"]},
+    { emoji:"🎧", text:"האוזניות שלך עדיין עובדות, אבל יצא דגם חדש", options:["נשאר עם שלי","מחכה שהמחיר ירד","קונה את הדגם החדש","חייב את הדגם הכי מתקדם"]},
+    { emoji:"🧹", text:"צריך לנקות את הבית", options:["עושה לבד","קונה חומרי ניקוי ומנקה","מזמין עזרה מדי פעם","מזמין מנקה באופן קבוע"]},
+    { emoji:"🍦", text:"הלכת עם הילדים לים", options:["מביא אוכל ושתייה מהבית","קונה גלידה","קונה אוכל ושתייה במקום","יושבים במסעדה ליד הים"]},
+    { emoji:"📺", text:"נגמרה סדרה ואין לך מה לראות", options:["מסתפק במה שיש","עושה מנוי לשירות אחד","עושה כמה מנויים","נרשם לכל שירות שמעניין אותי"]},
+    { emoji:"🛒", text:"אתה רואה מוצר שאתה צריך באינטרנט", options:["משווה מחירים","מחכה למבצע","קונה מיד","מוסיף עוד דברים לעגלה כדי \"לנצל את המשלוח\""]},
+    { emoji:"🚿", text:"הדוד בבית התקלקל", options:["בודק אם אפשר לתקן","מזמין טכנאי ומשווה מחיר","מחליף לחדש","קונה את הדגם הכי מתקדם"]},
+    { emoji:"🍿", text:"שבת אחר הצהריים", options:["טיול בפארק","ביקור אצל משפחה","פעילות בתשלום","יום שלם בקניון"]},
+    { emoji:"🎁", text:"חתונה של חבר קרוב", options:["מתנה בהתאם לתקציב","נותן קצת יותר מהרגיל","\"פותח את הכיס\"","מתנה נדיבה במיוחד"]},
+    { emoji:"👔", text:"יש לך אירוע ואתה צריך בגדים", options:["לובש משהו שכבר יש לי","קונה פריט אחד","קונה הופעה חדשה","\"אם כבר קונים אז הכול\""]},
+    { emoji:"🥤", text:"אתה בתחנת דלק", options:["ממשיך בלי לקנות","קונה בקבוק מים","קונה שתייה וחטיף","קונה ארוחה"]},
+    { emoji:"🧁", text:"במשרד חוגגים יום הולדת", options:["אוכל ממה שהביאו","קונה משהו קטן להשתתפות","מביא כיבוד יקר","מזמין משלוח לכולם"]},
+    { emoji:"🧳", text:"גילית שיש לך סוף שבוע פנוי", options:["נשאר בבית","טיול יום","לילה במלון","חופשה ספונטנית"]},
+    { emoji:"💇", text:"הגיע הזמן להסתפר", options:["מספרה במחיר רגיל","מחפש מקום זול יותר","מספרה יוקרתית","מספרה + טיפולים נוספים"]},
+    { emoji:"🍔", text:"חבר מציע להזמין אוכל", options:["אומר שאכלתי בבית","מזמין משהו קטן","מזמין מנה","\"יאללה, נזמין גם קינוח\""]},
+    { emoji:"📱", text:"קיבלת הודעה על חבילת סלולר חדשה", options:["בודק כמה אני משלם היום","משווה בין חברות","עובר לחבילה יקרה יותר עם יותר גלישה","משדרג כי \"מגיע לי\""]},
+    { emoji:"🚗", text:"אתה מחפש מקום חניה", options:["מחפש חניה בחינם","חונה קצת רחוק והולך","חניון קרוב","חניון VIP"]},
+    { emoji:"☀️", text:"יום חם במיוחד", options:["מפעיל מזגן בצורה מתונה","מפעיל כשצריך","המזגן עובד כל היום","מזגן בכל חדר"]},
+    { emoji:"🥩", text:"על האש עם חברים", options:["כל אחד מביא משהו","קונים יחד ומתחלקים","מארגנים ארוחה גדולה","קונים בלי לחשוב על התקציב"]},
+    { emoji:"🧒", text:"הילדים רוצים פעילות בחופש", options:["פארק או פעילות חינמית","פעילות בתקציב סביר","אטרקציה יקרה","כמה אטרקציות באותו יום"]},
+    { emoji:"🏦", text:"נכנסה המשכורת", options:["קודם מעביר כסף לחיסכון","חוסך מה שנשאר בסוף החודש","משאיר הכול בעו\"ש","\"נראה כמה יישאר\""]},
+    { emoji:"☕", text:"חבר מזמין אותך לקפה", options:["קפה בבית","קפה לקחת","יושבים בבית קפה","קפה + משהו לאכול"]},
+    { emoji:"🛏️", text:"המיטה בבית כבר לא הכי נוחה", options:["מנסה לתקן/לשפר","מחפש מבצע","קונה מיטה חדשה","משדרג את כל חדר השינה"]},
+    { emoji:"🎒", text:"הילד צריך תיק חדש לבית הספר", options:["בודק אם אפשר להשתמש בתיק הקיים","קונה תיק פשוט","קונה תיק ממותג","נותן לילד לבחור את היקר ביותר"]},
+    { emoji:"🖥️", text:"המסך במחשב קצת ישן", options:["ממשיך להשתמש בו","מחפש מסך יד שנייה","קונה מסך חדש","קונה מסך גיימינג מתקדם"]},
+    { emoji:"🍽️", text:"יום נישואין", options:["ארוחה בבית","יוצאים למקום נחמד","מסעדה טובה","ערב יוקרתי עם הכול"]},
+    { emoji:"🧴", text:"נגמר מוצר טיפוח בבית", options:["קונה את המוצר הרגיל","מחפש מבצע","קונה מותג יקר יותר","קונה כמה מוצרים \"על הדרך\""]},
+    { emoji:"🚲", text:"צריך כלי תחבורה לנסיעות קצרות", options:["הולך ברגל","משתמש באופניים","תחבורה ציבורית","קונה קורקינט חדש"]},
+    { emoji:"🧑‍💻", text:"יש לך יום עבודה מהבית", options:["מכין קפה ואוכל בבית","מזמין משהו קטן","יוצא לבית קפה לעבוד","עובד מבית קפה ומזמין לאורך היום"]},
+    { emoji:"🏠", text:"סוף סוף חסכת סכום משמעותי", options:["ממשיך באותה שגרת חיסכון","מרשה לעצמי פינוק קטן","קונה משהו שרציתי הרבה זמן","\"עבדתי קשה, הגיע הזמן להתפרע\""]}
+  ];
+
+  /* ============ INVESTMENT OPPORTUNITIES ============ */
+  const INVESTMENTS = [
+    { name:"קרן נדל\"ן (REIT)", risk:"סיכון נמוך", chance:[60,75], payout:[1.4,1.7], cost:[8,12] },
+    { name:"רכישת קרקע", risk:"סיכון נמוך", chance:[55,70], payout:[1.5,1.8], cost:[10,15] },
+    { name:"מכונות ממכר", risk:"סיכון נמוך-בינוני", chance:[55,68], payout:[1.5,1.9], cost:[8,12] },
+    { name:"שותפות בעסק שכונתי", risk:"סיכון נמוך-בינוני", chance:[50,65], payout:[1.6,2.0], cost:[10,14] },
+    { name:"דוכן מזון", risk:"סיכון בינוני", chance:[45,60], payout:[1.8,2.3], cost:[10,15] },
+    { name:"חנות תבלינים", risk:"סיכון בינוני", chance:[40,55], payout:[2.0,2.5], cost:[10,16] },
+    { name:"דירת נופש להשכרה", risk:"סיכון בינוני", chance:[40,55], payout:[2.0,2.5], cost:[12,16] },
+    { name:"שיפוץ ומכירת רכב וינטג'", risk:"סיכון בינוני-גבוה", chance:[35,50], payout:[2.2,2.8], cost:[10,15] },
+    { name:"מסחר בבורסה", risk:"סיכון בינוני-גבוה", chance:[35,50], payout:[2.2,2.8], cost:[12,18] },
+    { name:"מסחר במטבע חוץ", risk:"סיכון בינוני-גבוה", chance:[30,45], payout:[2.5,3.2], cost:[12,18] },
+    { name:"אמנות ואספנות", risk:"סיכון גבוה", chance:[25,40], payout:[2.8,3.5], cost:[12,18] },
+    { name:"השקעה בסטארטאפ", risk:"סיכון גבוה", chance:[20,32], payout:[3.2,4.2], cost:[14,20] },
+    { name:"קריפטו", risk:"סיכון גבוה מאוד", chance:[15,28], payout:[3.5,5.0], cost:[14,20] },
+    { name:"אופציות ומסחר ממונף", risk:"סיכון קיצוני", chance:[8,18], payout:[5.0,8.0], cost:[15,22] }
+  ];
+
+  /* ============ FLAVOR CONTENT ============ */
+  const SAVER_TYPES = [
+    { emoji:"🐿️", label:"החסכן האולטימטיבי — הביס האחרון בקופסה שלך שווה יותר מהמנה שלמה במסעדה" },
+    { emoji:"🧠", label:"החסכן השקול — לא קמצן, סתם עושה חשבון לפני שהוא שולף כרטיס" },
+    { emoji:"🤷", label:"האמצע ההוא — לא חוסך, לא מפוצץ, פשוט זורם" },
+    { emoji:"🎉", label:"חי את הרגע — הארנק נושם, הלב שמח, החשבון בבנק... בפעם הבאה" }
+  ];
+
+  const WIN_QUOTES = [
+    "הבחירות הקטנות שלך הצטברו למשהו גדול.",
+    "שקל ועוד שקל שווים דירה. אולי אפילו שתיים.",
+    "מי שהיה נאמן לקופסה מהבית, היום נאמן למשכנתא."
+  ];
+
+  const LOSE_QUOTES = [
+    "לא הצלחת להגיע לדירה, אבל לפחות חגגת כמו שצריך.",
+    "הדירה ברחה, אבל הבטן הייתה מלאה עד הסוף.",
+    "המסעדות ניצחו הפעם. הן תמיד מנצחות."
+  ];
+
+  /* ============ HELPERS ============ */
+  let state = {};
+  const $ = id => document.getElementById(id);
+  const fmt = n => Math.round(n).toLocaleString('he-IL') + ' ₪';
+  const rand = (min,max) => Math.random()*(max-min)+min;
+  const randInt = (min,max) => Math.floor(rand(min,max+1));
+  const pickRandom = arr => arr[Math.floor(Math.random()*arr.length)];
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  function showScreen(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+
+  function pickSaverType(tierCounts){
+    let best = 0;
+    for(let i=1;i<tierCounts.length;i++){
+      if(tierCounts[i] > tierCounts[best]) best = i;
+    }
+    return SAVER_TYPES[best];
+  }
+
+  /* ============ GAME SETUP ============ */
+  function buildSlots(){
+    const gameLength = randInt(CONFIG.minLength, CONFIG.maxLength);
+    const numOpportunities = Math.floor(gameLength / CONFIG.opportunityEvery);
+    const numQuestions = gameLength - numOpportunities;
+
+    const questionPool = shuffle(QUESTIONS).slice(0, numQuestions);
+    const investmentPool = shuffle(INVESTMENTS);
+
+    let slots = [];
+    let qi = 0, ii = 0;
+    for(let turn=1; turn<=gameLength; turn++){
+      if(turn % CONFIG.opportunityEvery === 0){
+        slots.push({ type:'opportunity', data: investmentPool[ii % investmentPool.length] });
+        ii++;
+      } else {
+        slots.push({ type:'question', data: questionPool[qi] });
+        qi++;
+      }
+    }
+    return { slots, gameLength };
+  }
+
+  function newGame(){
+    const built = buildSlots();
+    state = {
+      capital: CONFIG.startCapital,
+      price: CONFIG.startPrice,
+      slots: built.slots,
+      index: 0,
+      total: built.gameLength,
+      tierCounts: [0,0,0,0]
+    };
+    recordGamePlayed();
+    updateStats(false);
+    renderSlot();
+    showScreen('game');
+  }
+
+  function updateStats(animate){
+    const capEl = $('capitalNum');
+    const priceEl = $('priceNum');
+    capEl.textContent = fmt(state.capital);
+    priceEl.textContent = fmt(state.price);
+
+    const pct = Math.max(4, Math.min(100, (state.capital/state.price)*100));
+    $('trackFill').style.width = pct + '%';
+    $('trackMarker').style.right = pct + '%';
+
+    if(animate){
+      capEl.classList.remove('flash-mint');
+      void capEl.offsetWidth;
+      capEl.classList.add('flash-mint');
+    }
+  }
+
+  function renderSlot(){
+    const slot = state.slots[state.index];
+    $('qCounter').textContent = 'תור ' + (state.index+1) + ' מתוך ' + state.total;
+    if(slot.type === 'question'){
+      renderQuestion(slot.data);
+    } else {
+      renderOpportunity(slot.data);
+    }
+  }
+
+  /* ---------- regular question ---------- */
+  function renderQuestion(q){
+    $('mainCard').classList.remove('flash-win','flash-lose');
+    $('cardContent').innerHTML =
+      '<div class="q-emoji">'+q.emoji+'</div>' +
+      '<div class="q-text">'+q.text+'</div>';
+
+    const optWrap = $('options');
+    optWrap.innerHTML = '';
+    const shuffledOpts = shuffle(q.options.map((text, tier) => ({ text, tier })));
+    shuffledOpts.forEach(({text, tier}) => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn';
+      btn.textContent = text;
+      btn.addEventListener('click', () => chooseOption(tier, btn));
+      optWrap.appendChild(btn);
+    });
+  }
+
+  function chooseOption(tier, btnEl){
+    document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+
+    const range = CONFIG.tiers[tier];
+    const delta = rand(range.min, range.max);
+    state.capital += delta;
+    state.tierCounts[tier]++;
+
+    applyInflationAndAdvance();
+  }
+
+  /* ---------- investment opportunity ---------- */
+  function renderOpportunity(inv){
+    $('mainCard').classList.remove('flash-win','flash-lose');
+    const chancePct = Math.round(rand(inv.chance[0], inv.chance[1]));
+    const payoutMult = rand(inv.payout[0], inv.payout[1]);
+    const costPct = rand(inv.cost[0], inv.cost[1]) / 100;
+    const remainingGap = Math.max(state.price - state.capital, state.price * 0.15);
+    let cost = costPct * remainingGap;
+    cost = Math.min(cost, state.capital * CONFIG.investCostShareOfCapitalCap);
+    cost = Math.max(cost, state.capital * 0.05);
+    const totalReturn = cost * payoutMult;
+
+    $('cardContent').innerHTML =
+      '<div class="opp-label">הזדמנות השקעה</div>' +
+      '<div class="opp-title">'+inv.name+'</div>' +
+      '<div class="opp-risk">'+inv.risk+'</div>' +
+      '<div class="opp-body">' +
+        '<div class="gauge" id="oppGauge" style="--pct:'+chancePct+'">' +
+          '<div class="gauge-inner"><div class="pct" id="oppPct">'+chancePct+'%</div><div class="pct-lbl">סיכוי הצלחה</div></div>' +
+        '</div>' +
+        '<div class="opp-figures">' +
+          '<div class="row cost"><div class="lbl">עלות השקעה</div><div class="amt">'+fmt(cost)+'</div></div>' +
+          '<div class="row gain"><div class="lbl">בהצלחה תקבל</div><div class="amt">'+fmt(totalReturn)+'</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="opp-result" id="oppResult"></div>';
+
+    const optWrap = $('options');
+    optWrap.innerHTML = '';
+
+    const investBtn = document.createElement('button');
+    investBtn.className = 'btn-invest';
+    investBtn.textContent = 'משקיע';
+    investBtn.addEventListener('click', () => resolveInvestment(chancePct, cost, totalReturn, investBtn, skipBtn));
+
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'btn-skip';
+    skipBtn.textContent = 'לא תודה, נשאר בטוח';
+    skipBtn.addEventListener('click', () => {
+      investBtn.disabled = true;
+      skipBtn.disabled = true;
+      applyInflationAndAdvance();
+    });
+
+    optWrap.appendChild(investBtn);
+    optWrap.appendChild(skipBtn);
+  }
+
+  function resolveInvestment(chancePct, cost, totalReturn, investBtn, skipBtn){
+    investBtn.disabled = true;
+    skipBtn.disabled = true;
+
+    state.capital -= cost;
+    updateStats(true);
+
+    const gaugeEl = $('oppGauge');
+    const pctEl = $('oppPct');
+    const resultEl = $('oppResult');
+
+    gaugeEl.classList.add('spinning');
+    resultEl.className = 'opp-result pending';
+
+    let dots = 0;
+    const dotsTimer = setInterval(() => {
+      dots = (dots+1) % 4;
+      pctEl.textContent = '·'.repeat(dots || 1);
+      resultEl.textContent = 'בודק תוצאה' + '.'.repeat(dots+1);
+    }, 260);
+
+    const success = Math.random()*100 < chancePct;
+    const waitTime = 1600 + Math.random()*500;
+
+    setTimeout(() => {
+      clearInterval(dotsTimer);
+      gaugeEl.classList.remove('spinning');
+      pctEl.textContent = chancePct + '%';
+
+      if(success){
+        const gain = totalReturn - cost;
+        state.capital += gain;
+        resultEl.className = 'opp-result win';
+        resultEl.textContent = 'ההשקעה הצליחה! +' + fmt(gain);
+        $('mainCard').classList.add('flash-win');
+      } else {
+        resultEl.className = 'opp-result lose';
+        resultEl.textContent = 'ההשקעה נכשלה. הכסף אבד.';
+        $('mainCard').classList.add('flash-lose');
+      }
+      updateStats(true);
+    }, waitTime);
+
+    setTimeout(() => {
+      applyInflationAndAdvance();
+    }, waitTime + 1200);
+  }
+
+  /* ---------- shared flow ---------- */
+  function applyInflationAndAdvance(){
+    const infl = state.price * rand(CONFIG.inflation.min, CONFIG.inflation.max);
+    state.price += infl;
+
+    setTimeout(() => {
+      updateStats(true);
+      showToast('מחיר הדירה עלה');
+    }, 250);
+
+    setTimeout(() => {
+      if(state.capital >= state.price){
+        finishGame(true);
+        return;
+      }
+      state.index++;
+      if(state.index >= state.total){
+        finishGame(false);
+        return;
+      }
+      renderSlot();
+    }, 1200);
+  }
+
+  function showToast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 900);
+  }
+
+  function finishGame(won){
+    const type = pickSaverType(state.tierCounts);
+    const typeText = type.emoji + ' ' + type.label;
+    const turnsTaken = state.index + 1;
+
+    if(won){
+      recordGameWon(turnsTaken);
+      $('winCapital').textContent = fmt(state.capital);
+      $('winPrice').textContent = fmt(state.price);
+      $('winType').textContent = typeText;
+      $('winQuote').textContent = pickRandom(WIN_QUOTES);
+      showScreen('win');
+    } else {
+      $('loseCapital').textContent = fmt(state.capital);
+      $('losePrice').textContent = fmt(state.price);
+      $('loseType').textContent = typeText;
+      $('loseQuote').textContent = pickRandom(LOSE_QUOTES);
+      showScreen('lose');
+    }
+  }
+
+  $('startBtn').addEventListener('click', newGame);
+  $('winRestart').addEventListener('click', () => showScreen('start'));
+  $('loseRestart').addEventListener('click', () => showScreen('start'));
+
+})();
+</script>
+</body>
+</html>
