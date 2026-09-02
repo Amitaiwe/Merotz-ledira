@@ -332,7 +332,7 @@
       </div>
     </div>
 
-    <div class="version-tag">V1.7</div>
+    <div class="version-tag">V1.8</div>
   </div>
 
   <!-- GAME SCREEN -->
@@ -463,6 +463,15 @@
   let fbReady = false;
   let fbDb = null;
   let fbUid = null;
+  let fbQueue = [];
+
+  function fbRunOrQueue(fn){
+    if(fbReady && fbUid){
+      fn();
+    } else {
+      fbQueue.push(fn);
+    }
+  }
 
   try{
     firebase.initializeApp(firebaseConfig);
@@ -476,6 +485,9 @@
         fbReady = true;
         attachStatsListener();
         loadStoredNickname();
+        const pending = fbQueue;
+        fbQueue = [];
+        pending.forEach(function(fn){ fn(); });
       } else {
         fbUid = null;
         fbReady = false;
@@ -517,32 +529,38 @@
   }
 
   function saveNickname(nickname){
-    if(!fbReady || !fbDb || !fbUid || !nickname) return;
-    try{
-      fbDb.ref('users/'+fbUid).update({ nickname: nickname, lastPlayed: Date.now() });
-    }catch(e){ console.warn(e); }
+    if(!fbDb || !nickname) return;
+    fbRunOrQueue(function(){
+      try{
+        fbDb.ref('users/'+fbUid).update({ nickname: nickname, lastPlayed: Date.now() });
+      }catch(e){ console.warn(e); }
+    });
   }
 
   function recordGamePlayed(){
-    if(!fbReady || !fbDb) return;
-    try{
-      fbDb.ref('stats/gamesPlayed').transaction(function(cur){ return (cur||0)+1; });
-    }catch(e){ console.warn(e); }
+    if(!fbDb) return;
+    fbRunOrQueue(function(){
+      try{
+        fbDb.ref('stats/gamesPlayed').transaction(function(cur){ return (cur||0)+1; });
+      }catch(e){ console.warn(e); }
+    });
   }
 
   function recordGameWon(turnsTaken, nickname){
-    if(!fbReady || !fbDb) return;
-    try{
-      fbDb.ref('stats/gamesWon').transaction(function(cur){ return (cur||0)+1; });
-      fbDb.ref('stats/fastestWin').transaction(function(cur){
-        if(cur === null || turnsTaken < cur) return turnsTaken;
-        return cur;
-      }).then(function(result){
-        if(result.committed && result.snapshot.val() === turnsTaken){
-          fbDb.ref('stats/fastestWinName').set(nickname || 'אלמוני');
-        }
-      }).catch(function(err){ console.warn(err); });
-    }catch(e){ console.warn(e); }
+    if(!fbDb) return;
+    fbRunOrQueue(function(){
+      try{
+        fbDb.ref('stats/gamesWon').transaction(function(cur){ return (cur||0)+1; });
+        fbDb.ref('stats/fastestWin').transaction(function(cur){
+          if(cur === null || turnsTaken < cur) return turnsTaken;
+          return cur;
+        }).then(function(result){
+          if(result.committed && result.snapshot.val() === turnsTaken){
+            fbDb.ref('stats/fastestWinName').set(nickname || 'אלמוני');
+          }
+        }).catch(function(err){ console.warn(err); });
+      }catch(e){ console.warn(e); }
+    });
   }
 
   /* ============ CONFIG ============ */
