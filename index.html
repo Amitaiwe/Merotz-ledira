@@ -305,7 +305,7 @@
       </div>
     </div>
 
-    <div class="version-tag">V1.5</div>
+    <div class="version-tag">V1.6</div>
   </div>
 
   <!-- GAME SCREEN -->
@@ -408,6 +408,7 @@
 
   let fbReady = false;
   let fbDb = null;
+  let fbUid = null;
 
   try{
     firebase.initializeApp(firebaseConfig);
@@ -417,9 +418,13 @@
     });
     firebase.auth().onAuthStateChanged(function(user){
       if(user){
+        fbUid = user.uid;
         fbReady = true;
         attachStatsListener();
         loadStoredNickname();
+      } else {
+        fbUid = null;
+        fbReady = false;
       }
     });
   }catch(e){
@@ -448,10 +453,9 @@
   }
 
   function loadStoredNickname(){
-    if(!fbDb || !firebase.auth().currentUser) return;
+    if(!fbDb || !fbUid) return;
     try{
-      const uid = firebase.auth().currentUser.uid;
-      fbDb.ref('users/'+uid+'/nickname').once('value').then(function(snap){
+      fbDb.ref('users/'+fbUid+'/nickname').once('value').then(function(snap){
         const val = snap.val();
         if(val) $('nicknameInput').value = val;
       }).catch(function(err){ console.warn(err); });
@@ -459,10 +463,9 @@
   }
 
   function saveNickname(nickname){
-    if(!fbReady || !fbDb || !firebase.auth().currentUser || !nickname) return;
+    if(!fbReady || !fbDb || !fbUid || !nickname) return;
     try{
-      const uid = firebase.auth().currentUser.uid;
-      fbDb.ref('users/'+uid).update({ nickname: nickname, lastPlayed: Date.now() });
+      fbDb.ref('users/'+fbUid).update({ nickname: nickname, lastPlayed: Date.now() });
     }catch(e){ console.warn(e); }
   }
 
@@ -497,15 +500,15 @@
     opportunityEvery: 7,
     inflation: { min: 0.015, max: 0.025 },
     tiers: [
-      { min: 8000,  max: 12000 },
-      { min: 3000,  max: 6000 },
-      { min: -1500, max: 1500 },
-      { min: -10000, max: -6000 }
+      { min: 95000,  max: 150000 },
+      { min: 60000,  max: 95000 },
+      { min: 12000,  max: 38000 },
+      { min: -40000, max: -15000 }
     ],
     investCostShareOfCapitalCap: 0.6,
     eventChance: 0.20,
-    eventPositive: { min: 6000, max: 25000 },
-    eventNegative: { min: -20000, max: -6000 }
+    eventPositive: { min: 20000, max: 55000 },
+    eventNegative: { min: -50000, max: -18000 }
   };
 
   /* ============ QUESTION BANK ============ */
@@ -642,6 +645,10 @@
     return a;
   }
 
+  function addCapital(delta){
+    state.capital = Math.max(0, state.capital + delta);
+  }
+
   function showScreen(id){
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
     $(id).classList.add('active');
@@ -763,7 +770,7 @@
 
     const range = CONFIG.tiers[tier];
     const delta = rand(range.min, range.max);
-    state.capital += delta;
+    addCapital(delta);
     state.tierCounts[tier]++;
 
     maybeTriggerEvent();
@@ -782,9 +789,10 @@
   function showEventCard(evt){
     const range = evt.positive ? CONFIG.eventPositive : CONFIG.eventNegative;
     const delta = rand(range.min, range.max);
-    state.capital += delta;
+    addCapital(delta);
 
-    $('mainCard').classList.remove('flash-win','flash-lose');
+    const cardEl = $('mainCard');
+    cardEl.classList.remove('flash-win','flash-lose');
     $('cardContent').innerHTML =
       '<div class="event-label '+(evt.positive?'positive':'negative')+'">אירוע בלתי צפוי</div>' +
       '<div class="event-emoji">'+evt.emoji+'</div>' +
@@ -803,7 +811,8 @@
     optWrap.appendChild(contBtn);
 
     updateStats(true);
-    $('mainCard').classList.add(evt.positive ? 'flash-win' : 'flash-lose');
+    void cardEl.offsetWidth;
+    cardEl.classList.add(evt.positive ? 'flash-win' : 'flash-lose');
   }
 
   /* ---------- investment opportunity ---------- */
@@ -861,9 +870,10 @@
     state.investCount++;
     state.investRiskSum += INVESTMENTS.indexOf(inv);
 
-    state.capital -= cost;
+    addCapital(-cost);
     updateStats(true);
 
+    const cardEl = $('mainCard');
     const gaugeEl = $('oppGauge');
     const pctEl = $('oppPct');
     const resultEl = $('oppResult');
@@ -886,16 +896,19 @@
       gaugeEl.classList.remove('spinning');
       pctEl.textContent = chancePct + '%';
 
+      cardEl.classList.remove('flash-win','flash-lose');
+      void cardEl.offsetWidth;
+
       if(success){
         const gain = totalReturn - cost;
-        state.capital += gain;
+        addCapital(gain);
         resultEl.className = 'opp-result win';
         resultEl.textContent = 'ההשקעה הצליחה! +' + fmt(gain);
-        $('mainCard').classList.add('flash-win');
+        cardEl.classList.add('flash-win');
       } else {
         resultEl.className = 'opp-result lose';
         resultEl.textContent = 'ההשקעה נכשלה. הכסף אבד.';
-        $('mainCard').classList.add('flash-lose');
+        cardEl.classList.add('flash-lose');
       }
       updateStats(true);
     }, waitTime);
