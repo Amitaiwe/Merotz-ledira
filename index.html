@@ -134,6 +134,7 @@
   .stat .num{font-family:'Rubik',sans-serif;font-weight:800;font-size:20px;margin-top:2px;transition:color .2s ease;}
   .stat.capital .num{color:var(--mint);}
   .stat.price .num{color:var(--gold-soft);}
+  .capital-pct{font-size:11px;color:var(--ink-dim);margin-top:1px;}
 
   .track-wrap{position:relative;padding-top:6px;}
   .track-label{font-size:12px;color:var(--ink-dim);margin-bottom:6px;}
@@ -176,6 +177,13 @@
   /* opportunity card */
   .opp-label{font-size:12px;color:var(--gold-soft);letter-spacing:.02em;margin-bottom:4px;font-weight:700;}
   .opp-title{font-family:'Rubik',sans-serif;font-weight:800;font-size:21px;margin-bottom:2px;}
+  .opp-title-row{display:flex;align-items:center;justify-content:center;gap:8px;}
+  .info-btn{
+    width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:var(--card-2);
+    color:var(--ink-dim);font-family:'Rubik',sans-serif;font-weight:700;font-size:12.5px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;line-height:1;
+  }
+  .info-btn:active{transform:scale(0.92);}
   .opp-risk{font-size:13px;color:var(--ink-dim);margin-bottom:16px;}
   .opp-body{display:flex;align-items:center;gap:18px;width:100%;justify-content:center;margin-bottom:14px;}
   .gauge{
@@ -195,6 +203,25 @@
   .opp-figures .row .amt{font-family:'Rubik',sans-serif;font-weight:800;font-size:16px;}
   .opp-figures .cost .amt{color:var(--coral);}
   .opp-figures .gain .amt{color:var(--mint);}
+  .opp-figures .net .amt{color:var(--gold-soft);font-size:14px;}
+
+  /* info modal */
+  .modal-overlay{
+    position:absolute;inset:0;background:rgba(6,13,22,0.72);z-index:20;
+    display:none;align-items:center;justify-content:center;padding:24px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;
+    max-width:340px;width:100%;position:relative;text-align:right;
+  }
+  .modal-close{
+    position:absolute;top:12px;left:12px;width:26px;height:26px;border-radius:50%;
+    border:1px solid var(--line);background:var(--card-2);color:var(--ink-dim);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;line-height:1;
+  }
+  .modal-title{font-family:'Rubik',sans-serif;font-weight:800;font-size:17px;margin-bottom:10px;padding-left:30px;}
+  .modal-text{font-size:14.5px;color:var(--ink);line-height:1.6;}
 
   /* random event card */
   .event-label{font-size:12px;letter-spacing:.02em;margin-bottom:6px;font-weight:700;}
@@ -305,7 +332,7 @@
       </div>
     </div>
 
-    <div class="version-tag">V1.6</div>
+    <div class="version-tag">V1.7</div>
   </div>
 
   <!-- GAME SCREEN -->
@@ -315,6 +342,7 @@
         <div class="stat capital">
           <div class="lbl">💰 ההון שלך</div>
           <div class="num" id="capitalNum">0 ₪</div>
+          <div class="capital-pct" id="capitalPct">0% ממחיר הדירה</div>
         </div>
         <div class="stat price">
           <div class="lbl">🏠 מחיר הדירה</div>
@@ -386,6 +414,32 @@
     </div>
     <div class="end-quote" id="loseQuote">הוצאות קטנות מצטברות. אולי בפעם הבאה תבחר קצת אחרת...</div>
     <button class="btn-secondary" id="loseRestart">נסה שוב</button>
+  </div>
+
+  <!-- INFO MODAL -->
+  <div class="modal-overlay" id="infoModal">
+    <div class="modal-box">
+      <button class="modal-close" id="infoModalClose">✕</button>
+      <div class="modal-title" id="infoModalTitle"></div>
+      <div class="modal-text" id="infoModalText"></div>
+    </div>
+  </div>
+
+  <!-- HOW TO PLAY MODAL -->
+  <div class="modal-overlay show" id="howToModal">
+    <div class="modal-box">
+      <div class="modal-title">איך משחקים?</div>
+      <div class="modal-text">
+        יש לך הון התחלתי, ומטרה אחת: להגיע למחיר של דירה שרק ממשיך לברוח קדימה.
+        <br><br>
+        בכל תור תעמוד בפניך החלטה יומיומית רגילה — בלי לדעת כמה כל בחירה שווה באמת. תבחר לפי מה שהיית עושה בחיים האמיתיים, לא לפי ניקוד.
+        <br><br>
+        לאורך הדרך יצוצו גם הזדמנויות השקעה עם סיכון וסיכוי גלויים, ואירועים בלתי צפויים שקורים בלי קשר לבחירות שלך.
+        <br><br>
+        בסוף תגלה גם איזה "טיפוס פיננסי" אתה — לפי איך שבאמת שיחקת.
+      </div>
+      <button class="btn-primary" id="howToClose" style="margin-top:16px;">הבנתי, בואו נתחיל</button>
+    </div>
   </div>
 
 </div>
@@ -493,10 +547,10 @@
 
   /* ============ CONFIG ============ */
   const CONFIG = {
-    startCapital: 200000,
+    startCapital: 300000,
     startPrice: 1400000,
-    minLength: 28,
-    maxLength: 32,
+    maxTurns: 100,
+    bankruptcyThreshold: 0.10,
     opportunityEvery: 7,
     inflation: { min: 0.015, max: 0.025 },
     tiers: [
@@ -567,25 +621,73 @@
     { emoji:"🧴", text:"נגמר מוצר טיפוח בבית", options:["קונה את המוצר הרגיל","מחפש מבצע","קונה מותג יקר יותר","קונה כמה מוצרים \"על הדרך\""]},
     { emoji:"🚲", text:"צריך כלי תחבורה לנסיעות קצרות", options:["הולך ברגל","משתמש באופניים","תחבורה ציבורית","קונה קורקינט חדש"]},
     { emoji:"🧑‍💻", text:"יש לך יום עבודה מהבית", options:["מכין קפה ואוכל בבית","מזמין משהו קטן","יוצא לבית קפה לעבוד","עובד מבית קפה ומזמין לאורך היום"]},
-    { emoji:"🏠", text:"סוף סוף חסכת סכום משמעותי", options:["ממשיך באותה שגרת חיסכון","מרשה לעצמי פינוק קטן","קונה משהו שרציתי הרבה זמן","\"עבדתי קשה, הגיע הזמן להתפרע\""]}
+    { emoji:"🏠", text:"סוף סוף חסכת סכום משמעותי", options:["ממשיך באותה שגרת חיסכון","מרשה לעצמי פינוק קטן","קונה משהו שרציתי הרבה זמן","\"עבדתי קשה, הגיע הזמן להתפרע\""]},
+    { emoji:"⚽", text:"קבוצת הכדורגל האהובה עליך משחקת משחק עלייה לליגת האלופות?", options:["צופה מהבית","מזמין חברים לפיצה בבית","יוצא למקום עם שידור","טס למשחק בדיל"]},
+    { emoji:"🧺", text:"איפה עושים את הקניות השוטפות?", options:["אושר עד, פעם בחודש","ויקטורי, פעם בשבוע","מכולת שכונתית, פעמיים בשבוע","וולט, מוצר-מוצר בכל פעם שצריך"]},
+    { emoji:"💍", text:"אחותך מתחתנת?", options:["מתנה סמלית וברכה חמה","מתנה סבירה וברכה סבירה","מתנה מפנקת וברכה קצרה","ירח דבש לזוג על חשבוני, בזנזיבר"]},
+    { emoji:"🐶", text:"החיה המחמד צריכה מזון חדש?", options:["קונה שקית רגילה","משווה בין מותגים","קונה מותג פרימיום","קונה גם חטיפים וצעצועים"]},
+    { emoji:"📚", text:"רואה ספר שמעניין אותך?", options:["משאיל מהספרייה","מחכה למבצע","קונה חדש","קונה גם עוד כמה ספרים \"כי כבר קניתי\""]},
+    { emoji:"🧺", text:"יש ערימת כביסה גדולה", options:["מכבס בבית","מכבס עם תוכנית חסכונית","שולח חלקית לכביסה יבשה","שולח הכול לכביסה יבשה"]},
+    { emoji:"🚙", text:"השכנה מציעה נסיעה משותפת לעבודה", options:["מצטרף לנסיעה המשותפת","משלם על הדלק","נוסע ברכב שלו לבד","מזמין מונית פרטית"]},
+    { emoji:"🎓", text:"יש קורס מקצועי שיכול לקדם אותך", options:["לומד לבד באינטרנט חינם","קורס בסיסי בתשלום","קורס מקיף ומוכר","קורס עם ליווי אישי יקר"]},
+    { emoji:"🏥", text:"חידוש ביטוח בריאות/רכב", options:["משווה בין חברות","נשאר עם מה שיש","משדרג כיסוי בלי לבדוק","קונה את החבילה המקיפה ביותר"]},
+    { emoji:"🌸", text:"יום נישואין/יום אהבה", options:["כרטיס ברכה עם מילים חמות","קונה פרחים","מזמין למסעדה","חופשה מפתיעה"]},
+    { emoji:"🍷", text:"יש לך אירוע ואתה קונה יין/משקה", options:["קונה בקבוק סביר","משהו קצת יותר טוב","בקבוק יוקרתי","כמה בקבוקים יוקרתיים"]},
+    { emoji:"🧢", text:"בגדי החורף שלך משנה שנה", options:["ממשיך עם מה שיש","קונה פריט אחד חסר","מחדש כמה פריטים","קונה מלתחת חורף שלמה"]},
+    { emoji:"🎯", text:"יש לך ערב פנוי ורוצה לצאת", options:["משחק לוח עם חברים בבית","בר שכונתי","מועדון","ערב VIP יקר"]},
+    { emoji:"🧑‍🍳", text:"מזמינים אתכם לארוחה משותפת", options:["מביא מנה פשוטה","מביא קינוח קנוי","מביא בקבוק יין","מביא כל מה שביקשו ועוד"]},
+    { emoji:"🚲", text:"האופניים שלך זקוקות לטיפול", options:["מתקן בעצמך","הולך למוסך אופניים זול","מוסך יוקרתי","משדרג גם חלקים"]},
+    { emoji:"🖼️", text:"רואה תמונה/פוסטר שמוצא חן בעיניך", options:["לא קונה","הדפסה זולה","מסגור מקצועי","יצירת אמנות מקורית"]},
+    { emoji:"🎈", text:"יום הולדת של הילד", options:["מסיבה קטנה בבית","מסיבה עם כמה חברים","אולם אירועים","מסיבה עם כל התוספות"]},
+    { emoji:"📷", text:"רוצה לתעד רגע משפחתי", options:["צילום עצמי בטלפון","צלם לשעה","חבילת צילום מלאה","צלם + אלבום מודפס יוקרתי"]},
+    { emoji:"🧴", text:"קרם הגנה/מוצרי קיץ נגמרו", options:["קונה מותג בסיסי","מחפש מבצע","קונה מותג יוקרתי","קונה כמה מוצרים \"בול בזמן\""]},
+    { emoji:"🪑", text:"עובד/ת מהבית וצריך/ה כיסא", options:["ממשיך עם מה שיש","כיסא בסיסי","כיסא ארגונומי טוב","כיסא גיימינג/משרדי יוקרתי"]},
+    { emoji:"🧊", text:"המקרר בבית מרעיש", options:["בודק אם צריך תיקון","מזמין טכנאי","מחליף למקרר חדש","קונה מקרר חכם מתקדם"]},
+    { emoji:"🎿", text:"חופשת סקי/טיול הרפתקאות", options:["לא הולך השנה","חבילה בסיסית","חבילה משודרגת","חבילת יוקרה מלאה"]},
+    { emoji:"🍰", text:"חוגגים יום הולדת במשרד", options:["מביא עוגה ביתית","קונה עוגה פשוטה","קונה עוגה יוקרתית","מזמין קייטרינג לכולם"]},
+    { emoji:"🚿", text:"הברז בבית מטפטף", options:["מתקן בעצמך","קורא לאינסטלטור מקומי","מחליף את כל הברז","משפץ את חדר האמבטיה"]},
+    { emoji:"🎮", text:"מנוי לשירות גיימינג", options:["לא נרשם","מנוי בסיסי","מנוי מלא","קונה גם תוספות בתוך המשחקים"]},
+    { emoji:"🧵", text:"בגד שאתה אוהב נקרע", options:["תופר בעצמך","חייט מקומי זול","חייט יוקרתי","קונה בגד חדש לגמרי"]},
+    { emoji:"🚉", text:"נסיעה בין ערים", options:["תחבורה ציבורית רגילה","רכבת מהירה","מונית שיתופית","מונית פרטית"]},
+    { emoji:"🎗️", text:"יש קמפיין תרומה שמעניין אותך", options:["לא תורם הפעם","תורם סכום קטן","תורם סכום נדיב","הופך לתורם קבוע גדול"]},
+    { emoji:"🧻", text:"מוצרי ניקיון וטואלט לבית נגמרים", options:["קונה מותג פרטי","משווה מחירים","קונה מותג מוכר","קונה מותגים יוקרתיים לכל הבית"]},
+    { emoji:"🐟", text:"רוצה לפנק את עצמך בארוחת דגים/ים", options:["מבשל בבית","קונה מהדוכן בשוק","מסעדת דגים בינונית","מסעדת דגים יוקרתית"]},
+    { emoji:"🏕️", text:"סוף שבוע קמפינג", options:["ציוד קמפינג שכבר יש","שוכר ציוד בסיסי","קמפינג מאורגן","גלמפינג יוקרתי"]},
+    { emoji:"🧢", text:"ילד רוצה להצטרף לחוג", options:["חוג חינמי בקהילה","חוג עירוני זול","חוג פרטי","חוג פרטי עם ציוד יקר"]},
+    { emoji:"🚪", text:"המנעול בבית תקוע", options:["מנסה לפתור לבד","מזמין מנעולן רגיל","מזמין מנעולן דחוף בלילה","מחליף את כל מערכת הנעילה"]},
+    { emoji:"🍫", text:"עובר ליד חנות ממתקים", options:["ממשיך הלאה","קונה חטיף קטן","קונה כמה דברים","קונה מלא שקיות ממתקים"]},
+    { emoji:"🖨️", text:"המדפסת בבית נגמר לה הדיו", options:["ממתין וקונה כשצריך","מחסניות מקוריות זולות","מחסניות פרימיום","קונה מדפסת חדשה לגמרי"]},
+    { emoji:"🚴", text:"רוצה להתחיל ספורט חדש", options:["מתאמן עם סרטוני יוטיוב","קונה ציוד בסיס","נרשם לחוג","קונה ציוד מקצועי מלא"]},
+    { emoji:"🧣", text:"מתנה לעצמך אחרי הישג בעבודה", options:["לא קונה כלום","משהו קטן שרציתי","קניה משמעותית","\"מגיע לי הכול\""]},
+    { emoji:"🚦", text:"קיבלת דוח חניה", options:["משלם מיד ומקבל הנחה","משלם בזמן הרגיל","מערער אך משלם בסוף","מתעלם וזה מצטבר"]},
+    { emoji:"🍹", text:"יוצא לבר עם חברים", options:["שותה מים/לא שותה","משקה אחד","כמה משקאות","פותח חשבון פתוח לכולם"]},
+    { emoji:"🧦", text:"גרביים/הלבשה תחתונה נקרעים", options:["ממשיך להשתמש","חבילה בסיסית","מותג נוח","מותג יוקרתי"]},
+    { emoji:"🏨", text:"נוסע לעבודה מחוץ לעיר", options:["מלון תקציבי","מלון עסקים סטנדרטי","מלון בוטיק","סוויטה יוקרתית"]},
+    { emoji:"🎨", text:"הילדים רוצים לצייר/ליצור", options:["נייר וטושים שיש בבית","ערכת יצירה בסיסית","ערכה מקצועית","חוג אמנות פרטי"]},
+    { emoji:"🧯", text:"מטף הכיבוי בבית פג תוקף", options:["מחליף לבד בזול","קורא לחברה מוסמכת","משדרג את כל מערך הבטיחות","מתעלם בינתיים"]},
+    { emoji:"🎬", text:"כרטיסים למופע/הופעה", options:["לא הולך הפעם","כרטיס רגיל","כרטיס VIP","חבילת מפגש עם האמן"]},
+    { emoji:"🍦", text:"קונה גלידה בקיץ", options:["גלידה מהמקפיא בבית","גלידה מהמכולת","גלידרייה שכונתית","גלידרייה יוקרתית עם תוספות"]},
+    { emoji:"🪴", text:"רוצה לייפות את הבית", options:["צמח קטן מהגינה","עציץ מהמשתלה","כמה צמחים ועיצוב","משפץ פינת ירק שלמה"]},
+    { emoji:"🎽", text:"קבוצת ריצה/ספורט מזמינה אותך", options:["מצטרף בלי ציוד מיוחד","נעלי ריצה בסיסיות","ציוד ריצה מלא","נרשם גם למרוץ בתשלום"]},
+    { emoji:"🕯️", text:"חג/מועד מתקרב", options:["קונה רק את הנדרש","קונה גם כמה תוספות","קונה הכול חדש לקראת החג","משדרג את כל האירוח"]}
   ];
 
   /* ============ INVESTMENT OPPORTUNITIES ============ */
   const INVESTMENTS = [
-    { name:"קרן נדל\"ן (REIT)", risk:"סיכון נמוך", chance:[60,75], payout:[1.4,1.7], cost:[8,12] },
-    { name:"רכישת קרקע", risk:"סיכון נמוך", chance:[55,70], payout:[1.5,1.8], cost:[10,15] },
-    { name:"מכונות ממכר", risk:"סיכון נמוך-בינוני", chance:[55,68], payout:[1.5,1.9], cost:[8,12] },
-    { name:"שותפות בעסק שכונתי", risk:"סיכון נמוך-בינוני", chance:[50,65], payout:[1.6,2.0], cost:[10,14] },
-    { name:"דוכן מזון", risk:"סיכון בינוני", chance:[45,60], payout:[1.8,2.3], cost:[10,15] },
-    { name:"חנות תבלינים", risk:"סיכון בינוני", chance:[40,55], payout:[2.0,2.5], cost:[10,16] },
-    { name:"דירת נופש להשכרה", risk:"סיכון בינוני", chance:[40,55], payout:[2.0,2.5], cost:[12,16] },
-    { name:"שיפוץ ומכירת רכב וינטג'", risk:"סיכון בינוני-גבוה", chance:[35,50], payout:[2.2,2.8], cost:[10,15] },
-    { name:"מסחר בבורסה", risk:"סיכון בינוני-גבוה", chance:[35,50], payout:[2.2,2.8], cost:[12,18] },
-    { name:"מסחר במטבע חוץ", risk:"סיכון בינוני-גבוה", chance:[30,45], payout:[2.5,3.2], cost:[12,18] },
-    { name:"אמנות ואספנות", risk:"סיכון גבוה", chance:[25,40], payout:[2.8,3.5], cost:[12,18] },
-    { name:"השקעה בסטארטאפ", risk:"סיכון גבוה", chance:[20,32], payout:[3.2,4.2], cost:[14,20] },
-    { name:"קריפטו", risk:"סיכון גבוה מאוד", chance:[15,28], payout:[3.5,5.0], cost:[14,20] },
-    { name:"אופציות ומסחר ממונף", risk:"סיכון קיצוני", chance:[8,18], payout:[5.0,8.0], cost:[15,22] }
+    { name:"קרן נדל\"ן (REIT)", risk:"סיכון נמוך", chance:[60,75], payout:[1.4,1.7], cost:[8,12], desc:"השקעה בתעודה שמחזיקה בכמה נכסי נדל\"ן יחד, בלי לקנות נכס שלם בעצמך." },
+    { name:"רכישת קרקע", risk:"סיכון נמוך", chance:[55,70], payout:[1.5,1.8], cost:[10,15], desc:"קונים חלקת אדמה ומקווים שהערך שלה יעלה עם הזמן." },
+    { name:"מכונות ממכר", risk:"סיכון נמוך-בינוני", chance:[55,68], payout:[1.5,1.9], cost:[8,12], desc:"משקיעים במכונה שמוכרת מוצרים אוטומטית ומניבה הכנסה קבועה." },
+    { name:"שותפות בעסק שכונתי", risk:"סיכון נמוך-בינוני", chance:[50,65], payout:[1.6,2.0], cost:[10,14], desc:"הופכים לשותפים קטנים בעסק מקומי קיים, כמו מכולת או מספרה." },
+    { name:"דוכן מזון", risk:"סיכון בינוני", chance:[45,60], payout:[1.8,2.3], cost:[10,15], desc:"מממנים דוכן או פודטראק שמוכר אוכל, עם הכנסה תלוית ביקוש." },
+    { name:"חנות תבלינים", risk:"סיכון בינוני", chance:[40,55], payout:[2.0,2.5], cost:[10,16], desc:"משקיעים בחנות קטנה ומיוחדת שמוכרת תבלינים ומוצרי בוטיק." },
+    { name:"דירת נופש להשכרה", risk:"סיכון בינוני", chance:[40,55], payout:[2.0,2.5], cost:[12,16], desc:"קונים או משפצים דירה ומשכירים אותה לתיירים לטווח קצר." },
+    { name:"שיפוץ ומכירת רכב וינטג'", risk:"סיכון בינוני-גבוה", chance:[35,50], payout:[2.2,2.8], cost:[10,15], desc:"קונים רכב ישן, משפצים ומוכרים אותו ברווח, אם יש קונה." },
+    { name:"מסחר בבורסה", risk:"סיכון בינוני-גבוה", chance:[35,50], payout:[2.2,2.8], cost:[12,18], desc:"קונים מניות ומקווים שהשוק יעלה." },
+    { name:"מסחר במטבע חוץ", risk:"סיכון בינוני-גבוה", chance:[30,45], payout:[2.5,3.2], cost:[12,18], desc:"מנסים להרוויח מהפרשי שער בין מטבעות שונים." },
+    { name:"אמנות ואספנות", risk:"סיכון גבוה", chance:[25,40], payout:[2.8,3.5], cost:[12,18], desc:"קונים יצירת אמנות או פריט נדיר ומקווים שהערך שלו יעלה עם הזמן." },
+    { name:"השקעה בסטארטאפ", risk:"סיכון גבוה", chance:[20,32], payout:[3.2,4.2], cost:[14,20], desc:"משקיעים בחברה חדשה בתקווה שתצליח ותשווה הרבה יותר." },
+    { name:"קריפטו", risk:"סיכון גבוה מאוד", chance:[15,28], payout:[3.5,5.0], cost:[14,20], desc:"קונים מטבע דיגיטלי שהערך שלו יכול לזנק או לצנוח בלי אזהרה." },
+    { name:"אופציות ומסחר ממונף", risk:"סיכון קיצוני", chance:[8,18], payout:[5.0,8.0], cost:[15,22], desc:"משקיעים סכום קטן שיכול להניב רווח ענק, או להימחק כליל, תוך זמן קצר." }
   ];
 
   /* ============ RANDOM EVENTS ============ */
@@ -626,6 +728,12 @@
     "לא הצלחת להגיע לדירה, אבל לפחות חגגת כמו שצריך.",
     "הדירה ברחה, אבל הבטן הייתה מלאה עד הסוף.",
     "המסעדות ניצחו הפעם. הן תמיד מנצחות."
+  ];
+
+  const BANKRUPT_QUOTES = [
+    "ההון שלך צנח מתחת ל-10% ממחיר הדירה. גם הבנק הפסיק להאמין בך.",
+    "נשארת עם פירורים. הדירה הפכה לאגדה עירונית שמספרים עליה בעבודה.",
+    "הארנק הלבין לגמרי. לפחות עכשיו יש לך זמן פנוי לחשוב מה השתבש."
   ];
 
   /* ============ HELPERS ============ */
@@ -676,7 +784,7 @@
 
   /* ============ GAME SETUP ============ */
   function buildSlots(){
-    const gameLength = randInt(CONFIG.minLength, CONFIG.maxLength);
+    const gameLength = CONFIG.maxTurns;
     const numOpportunities = Math.floor(gameLength / CONFIG.opportunityEvery);
     const numQuestions = gameLength - numOpportunities;
 
@@ -722,12 +830,16 @@
   function updateStats(animate){
     const capEl = $('capitalNum');
     const priceEl = $('priceNum');
+    const pctEl = $('capitalPct');
     capEl.textContent = fmt(state.capital);
     priceEl.textContent = fmt(state.price);
 
-    const pct = Math.max(4, Math.min(100, (state.capital/state.price)*100));
-    $('trackFill').style.width = pct + '%';
-    $('trackMarker').style.right = pct + '%';
+    const rawPct = (state.capital/state.price)*100;
+    pctEl.textContent = Math.round(rawPct) + '% ממחיר הדירה';
+
+    const barPct = Math.max(4, Math.min(100, rawPct));
+    $('trackFill').style.width = barPct + '%';
+    $('trackMarker').style.right = barPct + '%';
 
     if(animate){
       capEl.classList.remove('flash-mint');
@@ -738,7 +850,7 @@
 
   function renderSlot(){
     const slot = state.slots[state.index];
-    $('qCounter').textContent = 'תור ' + (state.index+1) + ' מתוך ' + state.total;
+    $('qCounter').textContent = 'תור ' + (state.index+1);
     if(slot.type === 'question'){
       renderQuestion(slot.data);
     } else {
@@ -826,10 +938,11 @@
     cost = Math.min(cost, state.capital * CONFIG.investCostShareOfCapitalCap);
     cost = Math.max(cost, state.capital * 0.05);
     const totalReturn = cost * payoutMult;
+    const netProfit = totalReturn - cost;
 
     $('cardContent').innerHTML =
       '<div class="opp-label">הזדמנות השקעה</div>' +
-      '<div class="opp-title">'+inv.name+'</div>' +
+      '<div class="opp-title-row"><div class="opp-title">'+inv.name+'</div><button class="info-btn" id="oppInfoBtn" type="button">?</button></div>' +
       '<div class="opp-risk">'+inv.risk+'</div>' +
       '<div class="opp-body">' +
         '<div class="gauge" id="oppGauge" style="--pct:'+chancePct+'">' +
@@ -837,10 +950,13 @@
         '</div>' +
         '<div class="opp-figures">' +
           '<div class="row cost"><div class="lbl">עלות השקעה</div><div class="amt">'+fmt(cost)+'</div></div>' +
-          '<div class="row gain"><div class="lbl">בהצלחה תקבל</div><div class="amt">'+fmt(totalReturn)+'</div></div>' +
+          '<div class="row gain"><div class="lbl">בהצלחה תקבל (ברוטו)</div><div class="amt">'+fmt(totalReturn)+'</div></div>' +
+          '<div class="row net"><div class="lbl">רווח נטו בהצלחה</div><div class="amt">+'+fmt(netProfit)+'</div></div>' +
         '</div>' +
       '</div>' +
       '<div class="opp-result" id="oppResult"></div>';
+
+    $('oppInfoBtn').addEventListener('click', () => openInfoModal(inv.name, inv.desc));
 
     const optWrap = $('options');
     optWrap.innerHTML = '';
@@ -933,9 +1049,13 @@
         finishGame(true);
         return;
       }
+      if(state.capital < state.price * CONFIG.bankruptcyThreshold){
+        finishGame(false, 'bankrupt');
+        return;
+      }
       state.index++;
       if(state.index >= state.total){
-        finishGame(false);
+        finishGame(false, 'timeout');
         return;
       }
       renderSlot();
@@ -949,7 +1069,27 @@
     setTimeout(() => t.classList.remove('show'), 900);
   }
 
-  function finishGame(won){
+  /* ---------- info modal ---------- */
+  function openInfoModal(title, text){
+    $('infoModalTitle').textContent = title;
+    $('infoModalText').textContent = text;
+    $('infoModal').classList.add('show');
+  }
+
+  function closeInfoModal(){
+    $('infoModal').classList.remove('show');
+  }
+
+  $('infoModalClose').addEventListener('click', closeInfoModal);
+  $('infoModal').addEventListener('click', (e) => {
+    if(e.target.id === 'infoModal') closeInfoModal();
+  });
+
+  $('howToClose').addEventListener('click', () => {
+    $('howToModal').classList.remove('show');
+  });
+
+  function finishGame(won, reason){
     const type = computeCharacter(state);
     const typeText = type.emoji + ' ' + type.label;
     const turnsTaken = state.index + 1;
@@ -965,7 +1105,7 @@
       $('loseCapital').textContent = fmt(state.capital);
       $('losePrice').textContent = fmt(state.price);
       $('loseType').textContent = typeText;
-      $('loseQuote').textContent = pickRandom(LOSE_QUOTES);
+      $('loseQuote').textContent = pickRandom(reason === 'bankrupt' ? BANKRUPT_QUOTES : LOSE_QUOTES);
       showScreen('lose');
     }
   }
