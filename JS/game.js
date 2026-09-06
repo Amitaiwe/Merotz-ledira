@@ -87,6 +87,10 @@ export function newGame(){
   state = {
     capital: CONFIG.startCapital,
     price: CONFIG.startPrice,
+    investmentPortfolio: 0,
+    salary: CONFIG.startSalary,
+    fixedExpenses: CONFIG.startFixedExpenses,
+    monthSummary: null,
     slots: built.slots,
     index: 0,
     total: built.gameLength,
@@ -191,8 +195,26 @@ export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, 
 
 /* ---------- shared flow ---------- */
 export function applyInflationAndAdvance(){
+  const salaryBefore = state.salary;
+  const fixedExpensesBefore = state.fixedExpenses;
+  const checkingBefore = state.capital;
+  const investmentPortfolioBefore = state.investmentPortfolio;
+  const apartmentPriceBefore = state.price;
+
+  state.salary *= (1 + rand(CONFIG.salaryGrowth.min, CONFIG.salaryGrowth.max));
+  const monthlyCashFlow = state.salary - state.fixedExpenses;
+  addCapital(monthlyCashFlow);
+
   const infl = state.price * rand(CONFIG.inflation.min, CONFIG.inflation.max);
   state.price += infl;
+
+  state.monthSummary = {
+    salaryBefore, salaryAfter: state.salary,
+    fixedExpensesBefore, fixedExpensesAfter: state.fixedExpenses,
+    checkingBefore, checkingAfter: state.capital,
+    investmentPortfolioBefore, investmentPortfolioAfter: state.investmentPortfolio,
+    apartmentPriceBefore, apartmentPriceAfter: state.price
+  };
 
   setTimeout(() => {
     updateStats(true);

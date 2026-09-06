@@ -5,10 +5,13 @@
 export const CONFIG = {
     startCapital: 300000,
     startPrice: 1400000,
+    startSalary: 18000,
+    startFixedExpenses: 9000,
+    salaryGrowth: { min: 0.002, max: 0.006 },
     maxTurns: 100,
     bankruptcyThreshold: 0.10,
     opportunityEvery: 7,
-    inflation: { min: 0.015, max: 0.025 },
+    inflation: { min: 0.004, max: 0.007 },
     tiers: [
       { min: 95000,  max: 150000 },
       { min: 60000,  max: 95000 },
