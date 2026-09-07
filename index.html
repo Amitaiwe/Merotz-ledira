@@ -23,7 +23,7 @@
     <div class="start-stats">
       <div class="start-stat wallet">
         <div class="lbl">💰 הון התחלתי</div>
-        <div class="val">200,000 ₪</div>
+        <div class="val">300,000 ₪</div>
       </div>
       <div class="start-stat house">
         <div class="lbl">🏠 מחיר דירה התחלתי</div>
@@ -62,13 +62,33 @@
     <div class="topbar">
       <div class="stat-row">
         <div class="stat capital">
-          <div class="lbl">💰 ההון שלך</div>
+          <div class="lbl">💰 עו"ש</div>
           <div class="num" id="capitalNum">0 ₪</div>
           <div class="capital-pct" id="capitalPct">0% ממחיר הדירה</div>
         </div>
         <div class="stat price">
           <div class="lbl">🏠 מחיר הדירה</div>
           <div class="num" id="priceNum">0 ₪</div>
+        </div>
+      </div>
+      <div class="stat-row secondary">
+        <div class="sub-stat">
+          <span class="sub-lbl">משכורת</span>
+          <span class="sub-num" id="salaryNum">0 ₪</span>
+        </div>
+        <div class="sub-stat">
+          <span class="sub-lbl">הוצאות קבועות</span>
+          <span class="sub-num" id="expensesNum">0 ₪</span>
+        </div>
+      </div>
+      <div class="stat-row secondary">
+        <div class="sub-stat">
+          <span class="sub-lbl">תזרים חודשי</span>
+          <span class="sub-num" id="cashFlowNum">0 ₪</span>
+        </div>
+        <div class="sub-stat">
+          <span class="sub-lbl">תיק השקעות</span>
+          <span class="sub-num" id="portfolioNum">0 ₪</span>
         </div>
       </div>
       <div class="track-wrap">
@@ -147,6 +167,15 @@
     </div>
   </div>
 
+  <!-- MONTH SUMMARY MODAL -->
+  <div class="modal-overlay" id="monthSummaryModal">
+    <div class="modal-box">
+      <div class="modal-title">📊 סיכום החודש</div>
+      <div class="modal-text" id="monthSummaryContent"></div>
+      <button class="btn-primary" id="monthSummaryContinue" style="margin-top:16px;">המשך לחודש הבא</button>
+    </div>
+  </div>
+
   <!-- HOW TO PLAY MODAL -->
   <div class="modal-overlay show" id="howToModal">
     <div class="modal-box">
@@ -166,6 +195,6 @@
 
 </div>
 
-<script type="module" src="JS/app.js"></script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
