@@ -16,7 +16,7 @@
    disclosed explicitly in the summary. */
 
 import { CONFIG, QUESTIONS, INVESTMENTS, RANDOM_EVENTS, CHARACTER_TYPES, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES } from './data.js';
-import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showEventCard, showToast, renderWinScreen, renderLoseScreen } from './ui.js';
+import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showEventCard, showToast, showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
 import { recordGamePlayed, recordGameWon, saveNickname } from './firebase.js';
 
 export let state = {};
@@ -219,24 +219,25 @@ export function applyInflationAndAdvance(){
   setTimeout(() => {
     updateStats(true);
     showToast('מחיר הדירה עלה');
+    showMonthSummary(state.monthSummary);
   }, 250);
+}
 
-  setTimeout(() => {
-    if(state.capital >= state.price){
-      finishGame(true);
-      return;
-    }
-    if(state.capital < state.price * CONFIG.bankruptcyThreshold){
-      finishGame(false, 'bankrupt');
-      return;
-    }
-    state.index++;
-    if(state.index >= state.total){
-      finishGame(false, 'timeout');
-      return;
-    }
-    renderSlot();
-  }, 1200);
+export function proceedAfterMonthSummary(){
+  if(state.capital >= state.price){
+    finishGame(true);
+    return;
+  }
+  if(state.capital < state.price * CONFIG.bankruptcyThreshold){
+    finishGame(false, 'bankrupt');
+    return;
+  }
+  state.index++;
+  if(state.index >= state.total){
+    finishGame(false, 'timeout');
+    return;
+  }
+  renderSlot();
 }
 
 export function finishGame(won, reason){

@@ -39,6 +39,11 @@ export function updateStats(animate){
   $('trackFill').style.width = barPct + '%';
   $('trackMarker').style.right = barPct + '%';
 
+  $('salaryNum').textContent = fmt(state.salary);
+  $('expensesNum').textContent = fmt(state.fixedExpenses);
+  $('cashFlowNum').textContent = fmt(state.salary - state.fixedExpenses);
+  $('portfolioNum').textContent = fmt(state.investmentPortfolio);
+
   if(animate){
     capEl.classList.remove('flash-mint');
     void capEl.offsetWidth;
@@ -180,4 +185,66 @@ export function renderLoseScreen(typeText, quote){
   $('loseType').textContent = typeText;
   $('loseQuote').textContent = quote;
   showScreen('lose');
+}
+
+/* ---------- month summary modal (V1.8 step 1B) ----------
+   Reads only fields already present on the monthSummary object handed
+   to it by game.js (state.monthSummary) — no independent recomputation
+   of salary/expenses/checking/price. The one derived value, monthly
+   cash flow, is computed purely as salaryBefore-fixedExpensesBefore /
+   salaryAfter-fixedExpensesAfter from those same already-authoritative
+   fields (not re-simulated), so it can never drift from the engine.
+
+   No arrow characters are used anywhere, per the explicit "no arrows"
+   requirement — direction/meaning is conveyed by color only:
+   green = this change moved the player closer to the apartment,
+   red = this change moved the player further away,
+   neutral = unchanged. Which direction counts as "good" is field-
+   specific (salary up = good, expenses up = bad, etc.), never a
+   blanket "number went up = green" rule. */
+
+function msSentiment(before, after, higherIsGood){
+  if(after === before) return 'neutral';
+  const wentUp = after > before;
+  const isGood = higherIsGood ? wentUp : !wentUp;
+  return isGood ? 'positive' : 'negative';
+}
+
+function msRow(label, before, after, higherIsGood){
+  const sentiment = msSentiment(before, after, higherIsGood);
+  const delta = after - before;
+  const deltaText = delta === 0 ? fmt(0) : (delta > 0 ? '+' : '−') + fmt(Math.abs(delta));
+  return '<div class="ms-row">' +
+    '<div class="ms-row-top">' +
+      '<span class="ms-dot ' + sentiment + '"></span>' +
+      '<span class="ms-label">' + label + '</span>' +
+    '</div>' +
+    '<div class="ms-values">' +
+      '<span class="ms-before">' + fmt(before) + '</span>' +
+      '<span class="ms-sep">•</span>' +
+      '<span class="ms-after ' + sentiment + '">' + fmt(after) + '</span>' +
+    '</div>' +
+    '<div class="ms-delta ' + sentiment + '">' + deltaText + '</div>' +
+  '</div>';
+}
+
+export function showMonthSummary(monthSummary){
+  const cashFlowBefore = monthSummary.salaryBefore - monthSummary.fixedExpensesBefore;
+  const cashFlowAfter = monthSummary.salaryAfter - monthSummary.fixedExpensesAfter;
+
+  let html = '';
+  html += msRow('משכורת', monthSummary.salaryBefore, monthSummary.salaryAfter, true);
+  html += msRow('הוצאות', monthSummary.fixedExpensesBefore, monthSummary.fixedExpensesAfter, false);
+  html += msRow('תזרים חודשי', cashFlowBefore, cashFlowAfter, true);
+  html += msRow('עו"ש', monthSummary.checkingBefore, monthSummary.checkingAfter, true);
+  html += msRow('תיק השקעות', monthSummary.investmentPortfolioBefore, monthSummary.investmentPortfolioAfter, true);
+  html += msRow('מחיר הדירה', monthSummary.apartmentPriceBefore, monthSummary.apartmentPriceAfter, false);
+
+  $('monthSummaryContent').innerHTML = html;
+  $('monthSummaryContinue').disabled = false;
+  $('monthSummaryModal').classList.add('show');
+}
+
+export function closeMonthSummary(){
+  $('monthSummaryModal').classList.remove('show');
 }
