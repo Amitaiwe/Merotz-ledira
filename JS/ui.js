@@ -1,7 +1,8 @@
 /* ============ ui.js ============
    Everything that reads or writes the DOM: screen switching, number
-   updates, rendering questions/opportunities/events, toasts, modals,
-   and the win/lose screen writes extracted from the original finishGame().
+   updates, rendering questions/investment opportunities, toasts,
+   modals, and the win/lose screen writes extracted from the original
+   finishGame().
 
    NOTE ON SCOPE SHARING: the original code was one script with a single
    shared closure, so game logic and DOM code freely called each other
@@ -15,7 +16,7 @@
    any of these bindings are actually used. */
 
 import { CONFIG } from './data.js';
-import { state, shuffle, rand, chooseOption, resolveInvestment, applyInflationAndAdvance, addCapital } from './game.js';
+import { state, shuffle, rand, chooseOption, resolveInvestment, applyInflationAndAdvance } from './game.js';
 
 export const $ = id => document.getElementById(id);
 export const fmt = n => Math.round(n).toLocaleString('he-IL') + ' ₪';
@@ -29,10 +30,11 @@ export function updateStats(animate){
   const capEl = $('capitalNum');
   const priceEl = $('priceNum');
   const pctEl = $('capitalPct');
-  capEl.textContent = fmt(state.capital);
-  priceEl.textContent = fmt(state.price);
+  capEl.textContent = fmt(state.checkingAccount);
+  priceEl.textContent = fmt(state.apartmentPrice);
 
-  const rawPct = (state.capital/state.price)*100;
+  const totalWealth = state.checkingAccount + state.investmentPortfolio;
+  const rawPct = (totalWealth/state.apartmentPrice)*100;
   pctEl.textContent = Math.round(rawPct) + '% ממחיר הדירה';
 
   const barPct = Math.max(4, Math.min(100, rawPct));
@@ -70,46 +72,17 @@ export function renderQuestion(q){
   });
 }
 
-/* ---------- random life events ---------- */
-export function showEventCard(evt){
-  const range = evt.positive ? CONFIG.eventPositive : CONFIG.eventNegative;
-  const delta = rand(range.min, range.max);
-  addCapital(delta);
-
-  const cardEl = $('mainCard');
-  cardEl.classList.remove('flash-win','flash-lose');
-  $('cardContent').innerHTML =
-    '<div class="event-label '+(evt.positive?'positive':'negative')+'">אירוע בלתי צפוי</div>' +
-    '<div class="event-emoji">'+evt.emoji+'</div>' +
-    '<div class="event-title">'+evt.title+'</div>' +
-    '<div class="event-amt '+(evt.positive?'positive':'negative')+'">' + (evt.positive?'+':'−') + fmt(Math.abs(delta)) + '</div>';
-
-  const optWrap = $('options');
-  optWrap.innerHTML = '';
-  const contBtn = document.createElement('button');
-  contBtn.className = 'btn-invest';
-  contBtn.textContent = 'המשך';
-  contBtn.addEventListener('click', () => {
-    contBtn.disabled = true;
-    applyInflationAndAdvance();
-  });
-  optWrap.appendChild(contBtn);
-
-  updateStats(true);
-  void cardEl.offsetWidth;
-  cardEl.classList.add(evt.positive ? 'flash-win' : 'flash-lose');
-}
-
 /* ---------- investment opportunity ---------- */
 export function renderOpportunity(inv){
   $('mainCard').classList.remove('flash-win','flash-lose');
   const chancePct = Math.round(rand(inv.chance[0], inv.chance[1]));
   const payoutMult = rand(inv.payout[0], inv.payout[1]);
   const costPct = rand(inv.cost[0], inv.cost[1]) / 100;
-  const remainingGap = Math.max(state.price - state.capital, state.price * 0.15);
+  const totalWealth = state.checkingAccount + state.investmentPortfolio;
+  const remainingGap = Math.max(state.apartmentPrice - totalWealth, state.apartmentPrice * 0.15);
   let cost = costPct * remainingGap;
-  cost = Math.min(cost, state.capital * CONFIG.investCostShareOfCapitalCap);
-  cost = Math.max(cost, state.capital * 0.05);
+  cost = Math.min(cost, state.checkingAccount * CONFIG.investCostShareOfCapitalCap);
+  cost = Math.max(cost, state.checkingAccount * 0.05);
   const totalReturn = cost * payoutMult;
   const netProfit = totalReturn - cost;
 
@@ -171,18 +144,16 @@ export function closeInfoModal(){
 }
 
 /* ---------- win / lose screens (DOM-writing part of the original finishGame) ---------- */
-export function renderWinScreen(typeText, quote){
-  $('winCapital').textContent = fmt(state.capital);
-  $('winPrice').textContent = fmt(state.price);
-  $('winType').textContent = typeText;
+export function renderWinScreen(quote){
+  $('winCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
+  $('winPrice').textContent = fmt(state.apartmentPrice);
   $('winQuote').textContent = quote;
   showScreen('win');
 }
 
-export function renderLoseScreen(typeText, quote){
-  $('loseCapital').textContent = fmt(state.capital);
-  $('losePrice').textContent = fmt(state.price);
-  $('loseType').textContent = typeText;
+export function renderLoseScreen(quote){
+  $('loseCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
+  $('losePrice').textContent = fmt(state.apartmentPrice);
   $('loseQuote').textContent = quote;
   showScreen('lose');
 }

@@ -1,8 +1,8 @@
 /* ============ game.js ============
-   Game state and game-flow logic: building turns, money math, the
-   daily-choice mechanic, random events, investment opportunities,
-   inflation/turn advancement, win/lose decisions, and the financial
-   "character" calculation.
+   Game state and game-flow logic: building turns, the central money
+   ledger, the daily-choice mechanic (lifestyle drift on fixed
+   expenses), investment opportunities, monthly cashflow/inflation,
+   and win/lose decisions.
 
    NOTE: a few lines here still touch the DOM directly (disabling
    buttons to prevent double-clicks, writing the turn counter, reading
@@ -15,8 +15,8 @@
    layering, they stay here using the imported `$` helper. This is
    disclosed explicitly in the summary. */
 
-import { CONFIG, QUESTIONS, INVESTMENTS, RANDOM_EVENTS, CHARACTER_TYPES, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES } from './data.js';
-import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showEventCard, showToast, showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
+import { CONFIG, QUESTIONS, INVESTMENTS, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES } from './data.js';
+import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showToast, showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
 import { recordGamePlayed, recordGameWon, saveNickname } from './firebase.js';
 
 export let state = {};
@@ -34,28 +34,23 @@ export function shuffle(arr){
   return a;
 }
 
-export function addCapital(delta){
-  state.capital = Math.max(0, state.capital + delta);
+/* ============ CENTRAL MONEY LEDGER ============
+   Every change to the checking account or to fixed expenses goes
+   through one of these two functions, tagged with its source
+   (currently just a string, for future traceability). This is what
+   keeps the different systems that touch money — monthly cashflow,
+   investment opportunities, and daily-choice lifestyle drift — from
+   silently overlapping or getting mixed into monthSummary in a way
+   that can't be traced back to its cause. Nothing else in the
+   codebase should mutate state.checkingAccount / state.fixedExpenses
+   directly. */
+export function applyCheckingChange(amount, source){
+  state.checkingAccount = Math.max(0, state.checkingAccount + amount);
 }
 
-export function computeCharacter(st){
-  const tc = st.tierCounts;
-  const totalDaily = tc[0]+tc[1]+tc[2]+tc[3];
-  const frugalScore = tc[0]*2 + tc[1]*1 + tc[2]*0 + tc[3]*(-2);
-  const frugalRatio = totalDaily > 0 ? frugalScore / (totalDaily*2) : 0;
-
-  const investRate = st.numOpportunities > 0 ? st.investCount / st.numOpportunities : 0;
-  const avgRiskIndex = st.investCount > 0 ? st.investRiskSum / st.investCount : 0;
-  const riskNormalized = avgRiskIndex / (INVESTMENTS.length - 1);
-  const adventureScore = investRate*0.5 + riskNormalized*0.5;
-
-  if(st.investCount >= 2 && adventureScore >= 0.55){
-    return CHARACTER_TYPES[4]; // ההרפתקן הפיננסי
-  }
-  if(frugalRatio >= 0.45) return CHARACTER_TYPES[0]; // החסכן האולטימטיבי
-  if(frugalRatio >= 0.15) return CHARACTER_TYPES[1]; // המתכנן הפיננסי
-  if(frugalRatio > -0.15) return CHARACTER_TYPES[2]; // המאוזן
-  return CHARACTER_TYPES[3]; // החי את הרגע
+export function applyExpenseChange(percent, source){
+  const next = state.fixedExpenses * (1 + percent);
+  state.fixedExpenses = Math.max(CONFIG.minFixedExpenses, next);
 }
 
 /* ============ GAME SETUP ============ */
@@ -78,15 +73,15 @@ export function buildSlots(){
       qi++;
     }
   }
-  return { slots, gameLength, numOpportunities };
+  return { slots, gameLength };
 }
 
 export function newGame(){
   const built = buildSlots();
   const nicknameRaw = $('nicknameInput').value.trim();
   state = {
-    capital: CONFIG.startCapital,
-    price: CONFIG.startPrice,
+    checkingAccount: CONFIG.startChecking,
+    apartmentPrice: CONFIG.startApartmentPrice,
     investmentPortfolio: 0,
     salary: CONFIG.startSalary,
     fixedExpenses: CONFIG.startFixedExpenses,
@@ -94,10 +89,6 @@ export function newGame(){
     slots: built.slots,
     index: 0,
     total: built.gameLength,
-    tierCounts: [0,0,0,0],
-    numOpportunities: built.numOpportunities,
-    investCount: 0,
-    investRiskSum: 0,
     nickname: nicknameRaw
   };
   recordGamePlayed();
@@ -117,35 +108,22 @@ export function renderSlot(){
   }
 }
 
+/* ---------- daily choice: shifts fixed expenses only, never checking ---------- */
 export function chooseOption(tier, btnEl){
   document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
 
-  const range = CONFIG.tiers[tier];
-  const delta = rand(range.min, range.max);
-  addCapital(delta);
-  state.tierCounts[tier]++;
+  const impact = CONFIG.expenseImpact[tier];
+  const percent = rand(impact.min, impact.max);
+  applyExpenseChange(percent, 'daily-choice');
 
-  maybeTriggerEvent();
-}
-
-/* ---------- random life events ---------- */
-export function maybeTriggerEvent(){
-  if(Math.random() < CONFIG.eventChance){
-    const evt = pickRandom(RANDOM_EVENTS);
-    showEventCard(evt);
-  } else {
-    applyInflationAndAdvance();
-  }
+  applyInflationAndAdvance();
 }
 
 export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, skipBtn){
   investBtn.disabled = true;
   skipBtn.disabled = true;
 
-  state.investCount++;
-  state.investRiskSum += INVESTMENTS.indexOf(inv);
-
-  addCapital(-cost);
+  applyCheckingChange(-cost, 'investment');
   updateStats(true);
 
   const cardEl = $('mainCard');
@@ -176,7 +154,7 @@ export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, 
 
     if(success){
       const gain = totalReturn - cost;
-      addCapital(gain);
+      applyCheckingChange(gain, 'investment');
       resultEl.className = 'opp-result win';
       resultEl.textContent = 'ההשקעה הצליחה! +' + fmt(gain);
       cardEl.classList.add('flash-win');
@@ -193,27 +171,26 @@ export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, 
   }, waitTime + 1200);
 }
 
-/* ---------- shared flow ---------- */
+/* ---------- shared flow: monthly cashflow + apartment-price inflation ---------- */
 export function applyInflationAndAdvance(){
   const salaryBefore = state.salary;
   const fixedExpensesBefore = state.fixedExpenses;
-  const checkingBefore = state.capital;
+  const checkingBefore = state.checkingAccount;
   const investmentPortfolioBefore = state.investmentPortfolio;
-  const apartmentPriceBefore = state.price;
+  const apartmentPriceBefore = state.apartmentPrice;
 
   state.salary *= (1 + rand(CONFIG.salaryGrowth.min, CONFIG.salaryGrowth.max));
   const monthlyCashFlow = state.salary - state.fixedExpenses;
-  addCapital(monthlyCashFlow);
+  applyCheckingChange(monthlyCashFlow, 'monthly-cashflow');
 
-  const infl = state.price * rand(CONFIG.inflation.min, CONFIG.inflation.max);
-  state.price += infl;
+  state.apartmentPrice *= (1 + rand(CONFIG.inflation.min, CONFIG.inflation.max));
 
   state.monthSummary = {
     salaryBefore, salaryAfter: state.salary,
     fixedExpensesBefore, fixedExpensesAfter: state.fixedExpenses,
-    checkingBefore, checkingAfter: state.capital,
+    checkingBefore, checkingAfter: state.checkingAccount,
     investmentPortfolioBefore, investmentPortfolioAfter: state.investmentPortfolio,
-    apartmentPriceBefore, apartmentPriceAfter: state.price
+    apartmentPriceBefore, apartmentPriceAfter: state.apartmentPrice
   };
 
   setTimeout(() => {
@@ -224,11 +201,12 @@ export function applyInflationAndAdvance(){
 }
 
 export function proceedAfterMonthSummary(){
-  if(state.capital >= state.price){
+  const totalWealth = state.checkingAccount + state.investmentPortfolio;
+  if(totalWealth >= state.apartmentPrice){
     finishGame(true);
     return;
   }
-  if(state.capital < state.price * CONFIG.bankruptcyThreshold){
+  if(totalWealth < state.apartmentPrice * CONFIG.bankruptcyThreshold){
     finishGame(false, 'bankrupt');
     return;
   }
@@ -241,14 +219,12 @@ export function proceedAfterMonthSummary(){
 }
 
 export function finishGame(won, reason){
-  const type = computeCharacter(state);
-  const typeText = type.emoji + ' ' + type.label;
   const turnsTaken = state.index + 1;
 
   if(won){
     recordGameWon(turnsTaken, state.nickname);
-    renderWinScreen(typeText, pickRandom(WIN_QUOTES));
+    renderWinScreen(pickRandom(WIN_QUOTES));
   } else {
-    renderLoseScreen(typeText, pickRandom(reason === 'bankrupt' ? BANKRUPT_QUOTES : LOSE_QUOTES));
+    renderLoseScreen(pickRandom(reason === 'bankrupt' ? BANKRUPT_QUOTES : LOSE_QUOTES));
   }
 }

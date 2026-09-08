@@ -3,25 +3,27 @@
    No values, questions, or wording were changed. */
 
 export const CONFIG = {
-    startCapital: 300000,
-    startPrice: 1400000,
+    startChecking: 300000,
+    startApartmentPrice: 1400000,
     startSalary: 18000,
     startFixedExpenses: 9000,
-    salaryGrowth: { min: 0.002, max: 0.006 },
+    minFixedExpenses: 1000,
+    salaryGrowth: { min: 0.01, max: 0.025 },
     maxTurns: 100,
     bankruptcyThreshold: 0.10,
     opportunityEvery: 7,
     inflation: { min: 0.004, max: 0.007 },
-    tiers: [
-      { min: 95000,  max: 150000 },
-      { min: 60000,  max: 95000 },
-      { min: 12000,  max: 38000 },
-      { min: -40000, max: -15000 }
+    // Every daily-choice option shifts fixedExpenses by one of these four
+    // percentage ranges (never touches checking directly). Tier 2/3 are
+    // the exact ranges given for "מפנק"/"פזrן"; tier 0/1 mirror them
+    // symmetrically downward for the frugal choices.
+    expenseImpact: [
+      { min: -0.0060, max: -0.0044 }, // most frugal — biggest decrease
+      { min: -0.0042, max: -0.0020 }, // balanced — small decrease
+      { min:  0.0020, max:  0.0042 }, // indulgent — moderate increase
+      { min:  0.0044, max:  0.0060 }  // spendthrift — biggest increase
     ],
-    investCostShareOfCapitalCap: 0.6,
-    eventChance: 0.20,
-    eventPositive: { min: 20000, max: 55000 },
-    eventNegative: { min: -50000, max: -18000 }
+    investCostShareOfCapitalCap: 0.6
 };
 
 export const QUESTIONS = [
@@ -145,32 +147,6 @@ export const INVESTMENTS = [
     { name:"השקעה בסטארטאפ", risk:"סיכון גבוה", chance:[20,32], payout:[3.2,4.2], cost:[14,20], desc:"משקיעים בחברה חדשה בתקווה שתצליח ותשווה הרבה יותר." },
     { name:"קריפטו", risk:"סיכון גבוה מאוד", chance:[15,28], payout:[3.5,5.0], cost:[14,20], desc:"קונים מטבע דיגיטלי שהערך שלו יכול לזנק או לצנוח בלי אזהרה." },
     { name:"אופציות ומסחר ממונף", risk:"סיכון קיצוני", chance:[8,18], payout:[5.0,8.0], cost:[15,22], desc:"משקיעים סכום קטן שיכול להניב רווח ענק, או להימחק כליל, תוך זמן קצר." }
-];
-
-export const RANDOM_EVENTS = [
-    { emoji:"💼", title:"בונוס מפתיע מהעבודה", positive:true },
-    { emoji:"📄", title:"החזר מס הגיע לחשבון", positive:true },
-    { emoji:"🎁", title:"קיבלת מתנה מהמשפחה", positive:true },
-    { emoji:"📦", title:"מכרת פריט ישן שלא היית צריך", positive:true },
-    { emoji:"🏦", title:"זיכוי מפתיע מהבנק", positive:true },
-    { emoji:"🧾", title:"עבודה צדדית הניבה תוספת נאה", positive:true },
-    { emoji:"👖", title:"מצאת כסף ששכחת שהיה לך", positive:true },
-    { emoji:"🚘", title:"תיקון רכב בלתי צפוי", positive:false },
-    { emoji:"🏥", title:"הוצאה רפואית לא מתוכננת", positive:false },
-    { emoji:"🔧", title:"תיקון דחוף בבית", positive:false },
-    { emoji:"🚓", title:"קנס בלתי צפוי", positive:false },
-    { emoji:"👨‍👩‍👧", title:"אירוע משפחתי שדרש השתתפות כספית", positive:false },
-    { emoji:"📱", title:"תקלה בטלפון שהצריכה תיקון", positive:false },
-    { emoji:"📈", title:"עלייה בהוצאות הקבועות", positive:false },
-    { emoji:"💥", title:"הוצאה חד־פעמית בלתי צפויה", positive:false }
-];
-
-export const CHARACTER_TYPES = [
-    { emoji:"🦥", label:"החסכן האולטימטיבי — הביס האחרון בקופסה שלך שווה יותר מהמנה שלמה במסעדה" },
-    { emoji:"🧠", label:"המתכנן הפיננסי — לא קמצן, סתם עושה חשבון לפני שהוא שולף כרטיס" },
-    { emoji:"⚖️", label:"המאוזן — לא חוסך, לא מפוצץ, פשוט זורם" },
-    { emoji:"🎉", label:"החי את הרגע — הארנק נושם, הלב שמח, החשבון בבנק... בפעם הבאה" },
-    { emoji:"🚀", label:"ההרפתקן הפיננסי — לא מפחד לשים כסף על השולחן ולראות מה קורה" }
 ];
 
 export const WIN_QUOTES = [
