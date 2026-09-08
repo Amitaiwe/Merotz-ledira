@@ -234,16 +234,6 @@
   .ms-delta.positive{color:var(--mint);}
   .ms-delta.negative{color:var(--coral);}
 
-  /* random event card */
-  .event-label{font-size:12px;letter-spacing:.02em;margin-bottom:6px;font-weight:700;}
-  .event-label.positive{color:var(--mint);}
-  .event-label.negative{color:var(--coral);}
-  .event-emoji{font-size:38px;margin-bottom:10px;}
-  .event-title{font-family:'Rubik',sans-serif;font-weight:700;font-size:19px;line-height:1.4;margin-bottom:10px;}
-  .event-amt{font-family:'Rubik',sans-serif;font-weight:800;font-size:22px;margin-top:6px;}
-  .event-amt.positive{color:var(--mint);}
-  .event-amt.negative{color:var(--coral);}
-
   .opp-actions{display:flex;flex-direction:column;gap:10px;}
   .btn-invest{
     border:none;border-radius:14px;padding:16px;font-family:'Rubik',sans-serif;font-weight:700;font-size:16.5px;
