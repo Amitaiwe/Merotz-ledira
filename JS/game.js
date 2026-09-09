@@ -15,7 +15,7 @@
    layering, they stay here using the imported `$` helper. This is
    disclosed explicitly in the summary. */
 
-import { CONFIG, QUESTIONS, INVESTMENTS, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES } from './data.js';
+import { CONFIG, QUESTIONS, INVESTMENTS, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES, BURNOUT_QUOTES } from './data.js';
 import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showToast, showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
 import { recordGamePlayed, recordGameWon, saveNickname } from './firebase.js';
 
@@ -85,6 +85,7 @@ export function newGame(){
     investmentPortfolio: 0,
     salary: CONFIG.startSalary,
     fixedExpenses: CONFIG.startFixedExpenses,
+    burnout: 0,
     monthSummary: null,
     slots: built.slots,
     index: 0,
@@ -108,15 +109,31 @@ export function renderSlot(){
   }
 }
 
-/* ---------- daily choice: shifts fixed expenses only, never checking ---------- */
+/* ---------- daily choice: shifts fixed expenses + burnout, never checking ---------- */
 export function chooseOption(tier, btnEl){
   document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+
+  // captured BEFORE applyExpenseChange runs, so monthSummary can show the
+  // true before/after for this turn's choice — capturing it later (inside
+  // applyInflationAndAdvance, after the change already happened) was
+  // exactly the bug that made the expenses delta always show 0.
+  const fixedExpensesBeforeChoice = state.fixedExpenses;
 
   const impact = CONFIG.expenseImpact[tier];
   const percent = rand(impact.min, impact.max);
   applyExpenseChange(percent, 'daily-choice');
 
-  applyInflationAndAdvance();
+  state.burnout = Math.max(0, Math.min(100, state.burnout + CONFIG.burnoutDeltas[tier]));
+  updateStats(true);
+
+  if(state.burnout >= CONFIG.burnoutLoseThreshold){
+    // immediate game over — no monthly cashflow, no summary modal, no
+    // further inflation for this turn
+    setTimeout(() => finishGame(false, 'burnout'), 400);
+    return;
+  }
+
+  applyInflationAndAdvance(fixedExpensesBeforeChoice);
 }
 
 export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, skipBtn){
@@ -172,9 +189,16 @@ export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, 
 }
 
 /* ---------- shared flow: monthly cashflow + apartment-price inflation ---------- */
-export function applyInflationAndAdvance(){
+export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
   const salaryBefore = state.salary;
-  const fixedExpensesBefore = state.fixedExpenses;
+  // On a question turn, chooseOption already applied this turn's expense
+  // change before calling us, so state.fixedExpenses no longer reflects
+  // "before" — the caller passes the true pre-choice value instead. On an
+  // investment-opportunity turn (or skip), nothing has touched expenses
+  // this turn, so reading state.fixedExpenses directly is still correct.
+  const fixedExpensesBefore = (fixedExpensesBeforeOverride !== undefined)
+    ? fixedExpensesBeforeOverride
+    : state.fixedExpenses;
   const checkingBefore = state.checkingAccount;
   const investmentPortfolioBefore = state.investmentPortfolio;
   const apartmentPriceBefore = state.apartmentPrice;
@@ -225,6 +249,9 @@ export function finishGame(won, reason){
     recordGameWon(turnsTaken, state.nickname);
     renderWinScreen(pickRandom(WIN_QUOTES));
   } else {
-    renderLoseScreen(pickRandom(reason === 'bankrupt' ? BANKRUPT_QUOTES : LOSE_QUOTES));
+    const quotePool = reason === 'burnout' ? BURNOUT_QUOTES
+      : reason === 'bankrupt' ? BANKRUPT_QUOTES
+      : LOSE_QUOTES;
+    renderLoseScreen(pickRandom(quotePool), reason);
   }
 }

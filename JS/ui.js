@@ -46,6 +46,14 @@ export function updateStats(animate){
   $('cashFlowNum').textContent = fmt(state.salary - state.fixedExpenses);
   $('portfolioNum').textContent = fmt(state.investmentPortfolio);
 
+  const burnoutClamped = Math.max(0, Math.min(100, state.burnout || 0));
+  $('burnoutFill').style.width = Math.max(2, burnoutClamped) + '%';
+  $('burnoutPct').textContent = Math.round(burnoutClamped) + '%';
+  const burnoutFillEl = $('burnoutFill');
+  burnoutFillEl.classList.remove('burnout-mid','burnout-high');
+  if(burnoutClamped >= 75) burnoutFillEl.classList.add('burnout-high');
+  else if(burnoutClamped >= 50) burnoutFillEl.classList.add('burnout-mid');
+
   if(animate){
     capEl.classList.remove('flash-mint');
     void capEl.offsetWidth;
@@ -151,9 +159,10 @@ export function renderWinScreen(quote){
   showScreen('win');
 }
 
-export function renderLoseScreen(quote){
+export function renderLoseScreen(quote, reason){
   $('loseCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
   $('losePrice').textContent = fmt(state.apartmentPrice);
+  $('loseTitle').textContent = reason === 'burnout' ? 'נשברת מעומס' : 'הדירה ברחה לך';
   $('loseQuote').textContent = quote;
   showScreen('lose');
 }
@@ -181,19 +190,24 @@ function msSentiment(before, after, higherIsGood){
   return isGood ? 'positive' : 'negative';
 }
 
-function msRow(label, before, after, higherIsGood){
+function fmtPct(n){
+  return Math.round(n) + '%';
+}
+
+function msRow(label, before, after, higherIsGood, formatter){
+  const fmtFn = formatter || fmt;
   const sentiment = msSentiment(before, after, higherIsGood);
   const delta = after - before;
-  const deltaText = delta === 0 ? fmt(0) : (delta > 0 ? '+' : '−') + fmt(Math.abs(delta));
+  const deltaText = delta === 0 ? fmtFn(0) : (delta > 0 ? '+' : '−') + fmtFn(Math.abs(delta));
   return '<div class="ms-row">' +
     '<div class="ms-row-top">' +
       '<span class="ms-dot ' + sentiment + '"></span>' +
       '<span class="ms-label">' + label + '</span>' +
     '</div>' +
     '<div class="ms-values">' +
-      '<span class="ms-before">' + fmt(before) + '</span>' +
+      '<span class="ms-before">' + fmtFn(before) + '</span>' +
       '<span class="ms-sep">•</span>' +
-      '<span class="ms-after ' + sentiment + '">' + fmt(after) + '</span>' +
+      '<span class="ms-after ' + sentiment + '">' + fmtFn(after) + '</span>' +
     '</div>' +
     '<div class="ms-delta ' + sentiment + '">' + deltaText + '</div>' +
   '</div>';
@@ -203,6 +217,9 @@ export function showMonthSummary(monthSummary){
   const cashFlowBefore = monthSummary.salaryBefore - monthSummary.fixedExpensesBefore;
   const cashFlowAfter = monthSummary.salaryAfter - monthSummary.fixedExpensesAfter;
 
+  const percentBefore = ((monthSummary.checkingBefore + monthSummary.investmentPortfolioBefore) / monthSummary.apartmentPriceBefore) * 100;
+  const percentAfter = ((monthSummary.checkingAfter + monthSummary.investmentPortfolioAfter) / monthSummary.apartmentPriceAfter) * 100;
+
   let html = '';
   html += msRow('משכורת', monthSummary.salaryBefore, monthSummary.salaryAfter, true);
   html += msRow('הוצאות', monthSummary.fixedExpensesBefore, monthSummary.fixedExpensesAfter, false);
@@ -210,6 +227,7 @@ export function showMonthSummary(monthSummary){
   html += msRow('עו"ש', monthSummary.checkingBefore, monthSummary.checkingAfter, true);
   html += msRow('תיק השקעות', monthSummary.investmentPortfolioBefore, monthSummary.investmentPortfolioAfter, true);
   html += msRow('מחיר הדירה', monthSummary.apartmentPriceBefore, monthSummary.apartmentPriceAfter, false);
+  html += '<div class="ms-summary">' + msRow('סה"כ % מהדירה', percentBefore, percentAfter, true, fmtPct) + '</div>';
 
   $('monthSummaryContent').innerHTML = html;
   $('monthSummaryContinue').disabled = false;

@@ -11,7 +11,12 @@ export const CONFIG = {
     salaryGrowth: { min: 0.01, max: 0.025 },
     maxTurns: 100,
     bankruptcyThreshold: 0.10,
-    opportunityEvery: 7,
+    opportunityEvery: 5,
+    burnoutLoseThreshold: 90,
+    // Flat percentage-point deltas applied to the 0-100 burnout meter per
+    // daily-choice tier: frugal choices are mentally taxing (burnout up),
+    // indulgent/spendthrift choices relieve stress (burnout down).
+    burnoutDeltas: [15, 5, -10, -20],
     inflation: { min: 0.004, max: 0.007 },
     // Every daily-choice option shifts fixedExpenses by one of these four
     // percentage ranges (never touches checking directly). Tier 2/3 are
@@ -165,4 +170,10 @@ export const BANKRUPT_QUOTES = [
     "ההון שלך צנח מתחת ל-10% ממחיר הדירה. גם הבנק הפסיק להאמין בך.",
     "נשארת עם פירורים. הדירה הפכה לאגדה עירונית שמספרים עליה בעבודה.",
     "הארנק הלבין לגמרי. לפחות עכשיו יש לך זמן פנוי לחשוב מה השתבש."
+];
+
+export const BURNOUT_QUOTES = [
+    "נשברת מעומס. גם חיסכון צריך הפסקות.",
+    "השחיקה ניצחה את החלום. לפעמים כדאי לפרוק קצת לפני שנשברים.",
+    "הראש התרוקן לפני הארנק התמלא. הדירה תצטרך לחכות לגרסה רגועה יותר שלך."
 ];
