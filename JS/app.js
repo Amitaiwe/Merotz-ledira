@@ -6,7 +6,7 @@
    code's bottom section 1:1. */
 
 import { newGame, proceedAfterMonthSummary } from './game.js';
-import { showScreen, closeInfoModal, closeMonthSummary } from './ui.js';
+import { showScreen, closeInfoModal, closeMonthSummary, openPortfolioModal, closePortfolioModal } from './ui.js';
 
 const $ = id => document.getElementById(id);
 
@@ -33,4 +33,10 @@ $('monthSummaryContinue').addEventListener('click', () => {
   btn.disabled = true;
   closeMonthSummary();
   proceedAfterMonthSummary();
+});
+
+$('portfolioActionBtn').addEventListener('click', openPortfolioModal);
+$('portfolioModalClose').addEventListener('click', closePortfolioModal);
+$('portfolioModal').addEventListener('click', (e) => {
+  if(e.target.id === 'portfolioModal') closePortfolioModal();
 });

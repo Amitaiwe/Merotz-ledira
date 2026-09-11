@@ -15,7 +15,7 @@
    layering, they stay here using the imported `$` helper. This is
    disclosed explicitly in the summary. */
 
-import { CONFIG, QUESTIONS, INVESTMENTS, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES, BURNOUT_QUOTES } from './data.js';
+import { CONFIG, QUESTIONS, INVESTMENTS, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES, BURNOUT_QUOTES, PORTFOLIO_TRACKS } from './data.js';
 import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showToast, showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
 import { recordGamePlayed, recordGameWon, saveNickname } from './firebase.js';
 
@@ -53,6 +53,14 @@ export function applyExpenseChange(percent, source){
   state.fixedExpenses = Math.max(CONFIG.minFixedExpenses, next);
 }
 
+// state.investmentPortfolio is the existing field that already feeds
+// win/bankruptcy checks and monthSummary — the new stock-portfolio
+// engine below writes to it through this function so all of that
+// keeps working completely unmodified.
+export function applyPortfolioChange(amount, source){
+  state.investmentPortfolio = Math.max(0, state.investmentPortfolio + amount);
+}
+
 /* ============ GAME SETUP ============ */
 export function buildSlots(){
   const gameLength = CONFIG.maxTurns;
@@ -87,6 +95,13 @@ export function newGame(){
     fixedExpenses: CONFIG.startFixedExpenses,
     burnout: 0,
     monthSummary: null,
+    stockPortfolio: {
+      active: false,
+      riskTrack: null,
+      totalDeposited: 0,
+      openedAtTurn: null,
+      lastReturnPct: null
+    },
     slots: built.slots,
     index: 0,
     total: built.gameLength,
@@ -97,6 +112,57 @@ export function newGame(){
   updateStats(false);
   renderSlot();
   showScreen('game');
+}
+
+/* ============ STOCK PORTFOLIO ENGINE (V1.8, phase A) ============
+   A player can hold at most one portfolio at a time (state.stockPortfolio).
+   Its current value lives in state.investmentPortfolio (see note above
+   applyPortfolioChange) so every existing system that already reads
+   that field — win/bankruptcy checks, monthSummary, the topbar display —
+   keeps working with zero changes. */
+
+function pickWeightedReturn(returns){
+  const totalWeight = returns.reduce((sum, r) => sum + r.weight, 0);
+  let roll = Math.random() * totalWeight;
+  for(const r of returns){
+    if(roll < r.weight) return r.pct;
+    roll -= r.weight;
+  }
+  return returns[returns.length - 1].pct; // fallback safety, should not normally hit
+}
+
+export function openPortfolio(track, percent){
+  if(state.stockPortfolio.active) return; // already open — no-op
+  if(track !== 'conservative' && track !== 'risky') return;
+
+  const amount = state.checkingAccount * percent;
+  applyCheckingChange(-amount, 'portfolio-open');
+  applyPortfolioChange(amount, 'portfolio-open');
+
+  state.stockPortfolio = {
+    active: true,
+    riskTrack: track,
+    totalDeposited: amount,
+    openedAtTurn: state.index + 1,
+    lastReturnPct: null
+  };
+}
+
+export function depositToPortfolio(percent){
+  if(!state.stockPortfolio.active) return; // nothing to deposit into yet
+
+  const amount = state.checkingAccount * percent;
+  applyCheckingChange(-amount, 'portfolio-deposit');
+  applyPortfolioChange(amount, 'portfolio-deposit');
+  state.stockPortfolio.totalDeposited += amount;
+}
+
+function applyPortfolioMonthlyReturn(){
+  if(!state.stockPortfolio.active) return;
+  const track = PORTFOLIO_TRACKS[state.stockPortfolio.riskTrack];
+  const returnPct = pickWeightedReturn(track.returns);
+  applyPortfolioChange(state.investmentPortfolio * returnPct, 'portfolio-return');
+  state.stockPortfolio.lastReturnPct = returnPct;
 }
 
 export function renderSlot(){
@@ -208,6 +274,8 @@ export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
   applyCheckingChange(monthlyCashFlow, 'monthly-cashflow');
 
   state.apartmentPrice *= (1 + rand(CONFIG.inflation.min, CONFIG.inflation.max));
+
+  applyPortfolioMonthlyReturn();
 
   state.monthSummary = {
     salaryBefore, salaryAfter: state.salary,

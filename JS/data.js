@@ -177,3 +177,47 @@ export const BURNOUT_QUOTES = [
     "השחיקה ניצחה את החלום. לפעמים כדאי לפרוק קצת לפני שנשברים.",
     "הראש התרוקן לפני הארנק התמלא. הדירה תצטרך לחכות לגרסה רגועה יותר שלך."
 ];
+
+/* ============ PORTFOLIO_TRACKS (V1.8 stock-portfolio engine, phase A) ============
+   Each track lists its possible monthly returns with a weight (not a
+   probability — weights are normalized against their own sum at pick
+   time, so they don't need to add up to 100 or any particular total).
+   This starting distribution is intentionally simple and provisional —
+   a rebalancing pass is planned for later; only the mechanism itself
+   needs to work correctly right now. */
+export const PORTFOLIO_TRACKS = {
+    conservative: {
+        label: "סולידי",
+        returns: [
+            { pct: -0.010, weight: 3 },
+            { pct: -0.005, weight: 7 },
+            { pct:  0.000, weight: 15 },
+            { pct:  0.005, weight: 25 },
+            { pct:  0.010, weight: 25 },
+            { pct:  0.015, weight: 15 },
+            { pct:  0.020, weight: 7 },
+            { pct:  0.025, weight: 3 }
+        ]
+    },
+    risky: {
+        label: "מסוכן",
+        returns: [
+            { pct: -0.030, weight: 2 },
+            { pct: -0.025, weight: 3 },
+            { pct: -0.020, weight: 4 },
+            { pct: -0.015, weight: 6 },
+            { pct: -0.010, weight: 8 },
+            { pct: -0.005, weight: 10 },
+            { pct:  0.000, weight: 11 },
+            { pct:  0.005, weight: 12 },
+            { pct:  0.010, weight: 12 },
+            { pct:  0.015, weight: 10 },
+            { pct:  0.020, weight: 8 },
+            { pct:  0.025, weight: 6 },
+            { pct:  0.030, weight: 4 },
+            { pct:  0.035, weight: 2 },
+            { pct:  0.040, weight: 1 },
+            { pct:  0.045, weight: 1 }
+        ]
+    }
+};

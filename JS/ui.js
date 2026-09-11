@@ -15,8 +15,8 @@
    top level of either module, so both modules are fully loaded before
    any of these bindings are actually used. */
 
-import { CONFIG } from './data.js';
-import { state, shuffle, rand, chooseOption, resolveInvestment, applyInflationAndAdvance } from './game.js';
+import { CONFIG, PORTFOLIO_TRACKS } from './data.js';
+import { state, shuffle, rand, chooseOption, resolveInvestment, applyInflationAndAdvance, openPortfolio, depositToPortfolio } from './game.js';
 
 export const $ = id => document.getElementById(id);
 export const fmt = n => Math.round(n).toLocaleString('he-IL') + ' ₪';
@@ -45,6 +45,21 @@ export function updateStats(animate){
   $('expensesNum').textContent = fmt(state.fixedExpenses);
   $('cashFlowNum').textContent = fmt(state.salary - state.fixedExpenses);
   $('portfolioNum').textContent = fmt(state.investmentPortfolio);
+
+  const portfolioActionBtn = $('portfolioActionBtn');
+  const portfolioMetaEl = $('portfolioMeta');
+  if(state.stockPortfolio && state.stockPortfolio.active){
+    portfolioActionBtn.textContent = 'הפקד עוד';
+    const trackLabel = PORTFOLIO_TRACKS[state.stockPortfolio.riskTrack].label;
+    const lastReturn = state.stockPortfolio.lastReturnPct;
+    const returnText = (lastReturn === null || lastReturn === undefined)
+      ? ''
+      : (' · תשואה אחרונה: ' + (lastReturn >= 0 ? '+' : '') + (Math.round(lastReturn*1000)/10) + '%');
+    portfolioMetaEl.textContent = '(' + trackLabel + ')' + returnText;
+  } else {
+    portfolioActionBtn.textContent = 'פתח תיק השקעות';
+    portfolioMetaEl.textContent = '';
+  }
 
   const burnoutClamped = Math.max(0, Math.min(100, state.burnout || 0));
   $('burnoutFill').style.width = Math.max(2, burnoutClamped) + '%';
@@ -149,6 +164,68 @@ export function openInfoModal(title, text){
 
 export function closeInfoModal(){
   $('infoModal').classList.remove('show');
+}
+
+/* ---------- portfolio modal (open / deposit) ---------- */
+let portfolioModalPendingTrack = null;
+
+export function openPortfolioModal(){
+  portfolioModalPendingTrack = null;
+  if(state.stockPortfolio && state.stockPortfolio.active){
+    renderPortfolioPercentStep(true);
+  } else {
+    renderPortfolioTrackStep();
+  }
+  $('portfolioModal').classList.add('show');
+}
+
+export function closePortfolioModal(){
+  $('portfolioModal').classList.remove('show');
+}
+
+function renderPortfolioTrackStep(){
+  $('portfolioModalTitle').textContent = 'פתיחת תיק השקעות';
+  $('portfolioModalText').innerHTML =
+    '<div class="portfolio-track-btn" data-track="conservative">' +
+      '<div class="pt-title">סולידי</div>' +
+      '<div class="pt-sub">תנודתיות נמוכה, טווח תשואה מצומצם</div>' +
+    '</div>' +
+    '<div class="portfolio-track-btn" data-track="risky">' +
+      '<div class="pt-title">מסוכן</div>' +
+      '<div class="pt-sub">תנודתיות גבוהה, פוטנציאל תשואה גבוה יותר</div>' +
+    '</div>';
+  $('portfolioModalText').querySelectorAll('.portfolio-track-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      portfolioModalPendingTrack = btn.dataset.track;
+      renderPortfolioPercentStep(false);
+    });
+  });
+}
+
+function renderPortfolioPercentStep(isDeposit){
+  $('portfolioModalTitle').textContent = isDeposit ? 'הפקדה לתיק' : 'כמה להשקיע?';
+  const available = state.checkingAccount;
+  $('portfolioModalText').innerHTML =
+    '<div class="portfolio-pct-btn" data-pct="0.5">' +
+      '<div class="pt-title">50% מהעו"ש</div>' +
+      '<div class="pt-sub">' + fmt(available*0.5) + '</div>' +
+    '</div>' +
+    '<div class="portfolio-pct-btn" data-pct="0.9">' +
+      '<div class="pt-title">90% מהעו"ש</div>' +
+      '<div class="pt-sub">' + fmt(available*0.9) + '</div>' +
+    '</div>';
+  $('portfolioModalText').querySelectorAll('.portfolio-pct-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pct = parseFloat(btn.dataset.pct);
+      if(isDeposit){
+        depositToPortfolio(pct);
+      } else {
+        openPortfolio(portfolioModalPendingTrack, pct);
+      }
+      updateStats(true);
+      closePortfolioModal();
+    });
+  });
 }
 
 /* ---------- win / lose screens (DOM-writing part of the original finishGame) ---------- */
