@@ -128,6 +128,11 @@
   .sub-stat{flex:1;text-align:center;display:flex;flex-direction:column;gap:1px;}
   .sub-lbl{font-size:10.5px;color:var(--ink-dim);}
   .sub-num{font-family:'Rubik',sans-serif;font-weight:700;font-size:12.5px;color:var(--ink);}
+  .portfolio-meta{font-size:9.5px;color:var(--ink-dim);margin-top:1px;}
+  .portfolio-action-link{
+    margin-top:3px;background:none;border:none;color:var(--gold-soft);font-size:10.5px;
+    text-decoration:underline;cursor:pointer;padding:0;font-family:'Assistant',sans-serif;
+  }
 
   .track-wrap{position:relative;padding-top:6px;}
   .track-label{font-size:12px;color:var(--ink-dim);margin-bottom:6px;display:flex;justify-content:space-between;}
@@ -217,6 +222,16 @@
   }
   .modal-title{font-family:'Rubik',sans-serif;font-weight:800;font-size:17px;margin-bottom:10px;padding-left:30px;}
   .modal-text{font-size:14.5px;color:var(--ink);line-height:1.6;}
+
+  .portfolio-track-btn,.portfolio-pct-btn{
+    background:var(--card-2);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;margin-bottom:10px;cursor:pointer;text-align:right;
+    transition:transform .12s ease, background .15s ease;
+  }
+  .portfolio-track-btn:last-child,.portfolio-pct-btn:last-child{margin-bottom:0;}
+  .portfolio-track-btn:active,.portfolio-pct-btn:active{transform:scale(0.98);}
+  .pt-title{font-family:'Rubik',sans-serif;font-weight:700;font-size:15.5px;color:var(--ink);}
+  .pt-sub{font-size:12.5px;color:var(--ink-dim);margin-top:3px;}
 
   /* month summary rows — color only, no arrow glyphs anywhere */
   .ms-row{padding:10px 0;border-bottom:1px solid var(--line);}

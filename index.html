@@ -89,6 +89,8 @@
         <div class="sub-stat">
           <span class="sub-lbl">תיק השקעות</span>
           <span class="sub-num" id="portfolioNum">0 ₪</span>
+          <div class="portfolio-meta" id="portfolioMeta"></div>
+          <button class="portfolio-action-link" id="portfolioActionBtn" type="button">פתח תיק השקעות</button>
         </div>
       </div>
       <div class="track-wrap">
@@ -170,6 +172,15 @@
     </div>
   </div>
 
+  <!-- PORTFOLIO MODAL -->
+  <div class="modal-overlay" id="portfolioModal">
+    <div class="modal-box">
+      <button class="modal-close" id="portfolioModalClose">✕</button>
+      <div class="modal-title" id="portfolioModalTitle">פתיחת תיק השקעות</div>
+      <div class="modal-text" id="portfolioModalText"></div>
+    </div>
+  </div>
+
   <!-- HOW TO PLAY MODAL -->
   <div class="modal-overlay show" id="howToModal">
     <div class="modal-box">
@@ -189,6 +200,6 @@
 
 </div>
 
-<script type="module" src="JS/app.js"></script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
