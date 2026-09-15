@@ -1,22 +1,14 @@
 /* ============ ui.js ============
-   Everything that reads or writes the DOM: screen switching, number
-   updates, rendering questions/investment opportunities, toasts,
-   modals, and the win/lose screen writes extracted from the original
-   finishGame().
-
-   NOTE ON SCOPE SHARING: the original code was one script with a single
-   shared closure, so game logic and DOM code freely called each other
-   directly. Splitting it into modules without changing behavior means
-   ui.js and game.js import from each other (a circular dependency) —
-   ui.js needs game.js's chooseOption/resolveInvestment/applyInflationAndAdvance
-   as click handlers, and game.js needs ui.js's render/update functions to
-   drive the screen. This is safe in ES modules because every cross-call
-   happens inside a function body (button click, timer), never at the
-   top level of either module, so both modules are fully loaded before
-   any of these bindings are actually used. */
+   Everything that reads or writes the DOM. */
 
 import { CONFIG, PORTFOLIO_TRACKS } from './data.js';
-import { state, shuffle, rand, chooseOption, resolveInvestment, applyInflationAndAdvance, openPortfolio, depositToPortfolio } from './game.js';
+import {
+  state, shuffle, rand,
+  chooseOption, resolveInvestment, applyInflationAndAdvance,
+  openPortfolio, depositToPortfolio, canOpenNewPortfolio, canRealizePortfolio, realizePortfolio,
+  computeSpecialInvestmentAmount, getExpectedPortfolioNet, canFundSpecialInvestment,
+  decideSpecialInvestmentFunding, resolveSpecialInvestment, declineSpecialInvestment
+} from './game.js';
 
 export const $ = id => document.getElementById(id);
 export const fmt = n => Math.round(n).toLocaleString('he-IL') + ' ₪';
@@ -48,6 +40,7 @@ export function updateStats(animate){
 
   const portfolioActionBtn = $('portfolioActionBtn');
   const portfolioMetaEl = $('portfolioMeta');
+  const portfolioRealizeBtn = $('portfolioRealizeBtn');
   if(state.stockPortfolio && state.stockPortfolio.active){
     portfolioActionBtn.textContent = 'הפקד עוד';
     const trackLabel = PORTFOLIO_TRACKS[state.stockPortfolio.riskTrack].label;
@@ -56,9 +49,11 @@ export function updateStats(animate){
       ? ''
       : (' · תשואה אחרונה: ' + (lastReturn >= 0 ? '+' : '') + (Math.round(lastReturn*1000)/10) + '%');
     portfolioMetaEl.textContent = '(' + trackLabel + ')' + returnText;
+    portfolioRealizeBtn.style.display = canRealizePortfolio() ? 'block' : 'none';
   } else {
     portfolioActionBtn.textContent = 'פתח תיק השקעות';
     portfolioMetaEl.textContent = '';
+    portfolioRealizeBtn.style.display = 'none';
   }
 
   const burnoutClamped = Math.max(0, Math.min(100, state.burnout || 0));
@@ -95,7 +90,7 @@ export function renderQuestion(q){
   });
 }
 
-/* ---------- investment opportunity ---------- */
+/* ---------- regular investment opportunity (legacy — no longer triggered) ---------- */
 export function renderOpportunity(inv){
   $('mainCard').classList.remove('flash-win','flash-lose');
   const chancePct = Math.round(rand(inv.chance[0], inv.chance[1]));
@@ -148,6 +143,118 @@ export function renderOpportunity(inv){
   optWrap.appendChild(skipBtn);
 }
 
+/* ---------- special investment decision (B2.2 + B2.3) ---------- */
+export function renderSpecialInvestmentDecision(inv){
+  $('mainCard').classList.remove('flash-win','flash-lose');
+  const amount = computeSpecialInvestmentAmount();
+  const canUseChecking = canFundSpecialInvestment('checking');
+  const canUsePortfolio = canFundSpecialInvestment('portfolio');
+
+  $('cardContent').innerHTML =
+    '<div class="opp-label">הזדמנות השקעה מיוחדת</div>' +
+    '<div class="opp-title-row"><div class="opp-title">' + inv.name + '</div></div>' +
+    '<div class="opp-risk">' + inv.risk + '</div>' +
+    '<div class="opp-body" style="flex-direction:column;">' +
+      '<div class="opp-figures" style="text-align:center;width:100%;">' +
+        '<div class="row cost"><div class="lbl">סכום נדרש</div><div class="amt">' + fmt(amount) + '</div></div>' +
+      '</div>' +
+      '<div class="modal-text" style="margin-top:10px;text-align:right;">' + inv.desc + '</div>' +
+    '</div>';
+
+  const optWrap = $('options');
+  optWrap.innerHTML = '';
+
+  // 1. מימון מהעו"ש
+  const checkingBtn = document.createElement('button');
+  checkingBtn.className = 'btn-invest';
+  checkingBtn.textContent = canUseChecking
+    ? 'ממן מהעו"ש (' + fmt(amount) + ')'
+    : 'אין מספיק בעו"ש';
+  checkingBtn.disabled = !canUseChecking;
+  checkingBtn.addEventListener('click', () => {
+    if(checkingBtn.disabled) return;
+    runSpecialInvestmentFlow('checking');
+  });
+  optWrap.appendChild(checkingBtn);
+
+  // 2. מימוש תיק — רק אם יש תיק פעיל
+  if(state.stockPortfolio && state.stockPortfolio.active){
+    const portfolioBtn = document.createElement('button');
+    portfolioBtn.className = 'btn-invest';
+    const net = getExpectedPortfolioNet();
+    portfolioBtn.textContent = canUsePortfolio
+      ? 'ממש תיק השקעות (' + fmt(net) + ' נטו)'
+      : 'שווי התיק אחרי מס: ' + fmt(net) + ' (לא מספיק)';
+    portfolioBtn.disabled = !canUsePortfolio;
+    portfolioBtn.addEventListener('click', () => {
+      if(portfolioBtn.disabled) return;
+      runSpecialInvestmentFlow('portfolio');
+    });
+    optWrap.appendChild(portfolioBtn);
+  }
+
+  // 3. דחייה
+  const declineBtn = document.createElement('button');
+  declineBtn.className = 'btn-skip';
+  declineBtn.textContent = 'לא תודה, מוותר על ההזדמנות';
+  declineBtn.addEventListener('click', () => {
+    if(declineSpecialInvestment()){
+      updateStats(true);
+      applyInflationAndAdvance();
+    }
+  });
+  optWrap.appendChild(declineBtn);
+}
+
+function runSpecialInvestmentFlow(fundingSource){
+  const decision = decideSpecialInvestmentFunding(fundingSource);
+  if(!decision) return;
+  updateStats(true);
+
+  // מסך suspense
+  $('cardContent').innerHTML =
+    '<div class="opp-label">הזדמנות השקעה מיוחדת</div>' +
+    '<div class="opp-title-row"><div class="opp-title">' + decision.name + '</div></div>' +
+    '<div class="opp-risk">מבצע את ההשקעה...</div>' +
+    '<div class="opp-result pending" id="oppResult">בודק תוצאה...</div>';
+  $('options').innerHTML = '';
+
+  setTimeout(() => {
+    const result = resolveSpecialInvestment();
+    if(!result) return;
+    const won = result.profit >= 0;
+
+    $('cardContent').innerHTML =
+      '<div class="opp-label">הזדמנות השקעה מיוחדת</div>' +
+      '<div class="opp-title-row"><div class="opp-title">' + result.name + '</div></div>' +
+      '<div class="opp-risk">' +
+        (result.fundingSource === 'portfolio' ? 'מומן ממימוש תיק ההשקעות' : 'מומן מהעו"ש') +
+      '</div>' +
+      '<div class="opp-body">' +
+        '<div class="opp-figures">' +
+          '<div class="row cost"><div class="lbl">הושקע</div><div class="amt">' + fmt(result.amount) + '</div></div>' +
+          '<div class="row gain"><div class="lbl">תקבול</div><div class="amt">' + fmt(result.payout) + '</div></div>' +
+          '<div class="row net"><div class="lbl">' + (won ? 'רווח' : 'הפסד') + '</div>' +
+            '<div class="amt">' + (won ? '+' : '−') + fmt(Math.abs(result.profit)) + '</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="opp-result ' + (won ? 'win' : 'lose') + '">' +
+        (won ? 'ההשקעה הצליחה!' : 'ההשקעה נכשלה.') +
+      '</div>' +
+      '<div class="modal-text" style="margin-top:8px;">יתרת עו"ש: ' + fmt(state.checkingAccount) + '</div>';
+
+    const optWrap = $('options');
+    optWrap.innerHTML = '';
+    const contBtn = document.createElement('button');
+    contBtn.className = 'btn-primary';
+    contBtn.textContent = 'המשך';
+    contBtn.addEventListener('click', () => {
+      applyInflationAndAdvance();
+    });
+    optWrap.appendChild(contBtn);
+  }, 1400);
+}
+
 export function showToast(msg){
   const t = $('toast');
   t.textContent = msg;
@@ -166,21 +273,35 @@ export function closeInfoModal(){
   $('infoModal').classList.remove('show');
 }
 
-/* ---------- portfolio modal (open / deposit) ---------- */
+/* ---------- portfolio modal ---------- */
 let portfolioModalPendingTrack = null;
 
 export function openPortfolioModal(){
   portfolioModalPendingTrack = null;
   if(state.stockPortfolio && state.stockPortfolio.active){
     renderPortfolioPercentStep(true);
+  } else if(!canOpenNewPortfolio()){
+    renderPortfolioLockedStep();
   } else {
     renderPortfolioTrackStep();
   }
   $('portfolioModal').classList.add('show');
 }
 
+export function openPortfolioRealizeModal(){
+  if(!canRealizePortfolio()) return;
+  renderPortfolioRealizeStep();
+  $('portfolioModal').classList.add('show');
+}
+
 export function closePortfolioModal(){
   $('portfolioModal').classList.remove('show');
+}
+
+function renderPortfolioLockedStep(){
+  $('portfolioModalTitle').textContent = 'תיק השקעות';
+  $('portfolioModalText').innerHTML =
+    '<div class="portfolio-locked-note">ניתן לפתוח תיק חדש רק החל מהחודש הבא.</div>';
 }
 
 function renderPortfolioTrackStep(){
@@ -228,7 +349,30 @@ function renderPortfolioPercentStep(isDeposit){
   });
 }
 
-/* ---------- win / lose screens (DOM-writing part of the original finishGame) ---------- */
+function renderPortfolioRealizeStep(){
+  const grossValue = state.investmentPortfolio;
+  const deposited = state.stockPortfolio.totalDeposited;
+  const profit = grossValue - deposited;
+  const tax = profit > 0 ? profit * CONFIG.portfolioTaxRate : 0;
+  const netReturned = grossValue - tax;
+
+  $('portfolioModalTitle').textContent = 'מימוש תיק ההשקעות';
+  $('portfolioModalText').innerHTML =
+    '<div class="portfolio-realize-row"><span>שווי התיק</span><span>' + fmt(grossValue) + '</span></div>' +
+    '<div class="portfolio-realize-row"><span>סך הפקדות</span><span>' + fmt(deposited) + '</span></div>' +
+    '<div class="portfolio-realize-row"><span>' + (profit >= 0 ? 'רווח' : 'הפסד') + '</span><span>' + fmt(Math.abs(profit)) + '</span></div>' +
+    '<div class="portfolio-realize-row"><span>מס (10% מהרווח)</span><span>' + fmt(tax) + '</span></div>' +
+    '<div class="portfolio-realize-row total"><span>יחזור לעו"ש</span><span>' + fmt(netReturned) + '</span></div>' +
+    '<button class="btn-primary" id="portfolioRealizeConfirm" style="margin-top:14px;" type="button">מימוש</button>';
+
+  $('portfolioRealizeConfirm').addEventListener('click', () => {
+    realizePortfolio();
+    updateStats(true);
+    closePortfolioModal();
+  });
+}
+
+/* ---------- win / lose screens ---------- */
 export function renderWinScreen(quote){
   $('winCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
   $('winPrice').textContent = fmt(state.apartmentPrice);
@@ -244,22 +388,7 @@ export function renderLoseScreen(quote, reason){
   showScreen('lose');
 }
 
-/* ---------- month summary modal (V1.8 step 1B) ----------
-   Reads only fields already present on the monthSummary object handed
-   to it by game.js (state.monthSummary) — no independent recomputation
-   of salary/expenses/checking/price. The one derived value, monthly
-   cash flow, is computed purely as salaryBefore-fixedExpensesBefore /
-   salaryAfter-fixedExpensesAfter from those same already-authoritative
-   fields (not re-simulated), so it can never drift from the engine.
-
-   No arrow characters are used anywhere, per the explicit "no arrows"
-   requirement — direction/meaning is conveyed by color only:
-   green = this change moved the player closer to the apartment,
-   red = this change moved the player further away,
-   neutral = unchanged. Which direction counts as "good" is field-
-   specific (salary up = good, expenses up = bad, etc.), never a
-   blanket "number went up = green" rule. */
-
+/* ---------- month summary modal ---------- */
 function msSentiment(before, after, higherIsGood){
   if(after === before) return 'neutral';
   const wentUp = after > before;
