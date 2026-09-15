@@ -1,6 +1,5 @@
 /* ============ data.js ============
-   Static game data extracted verbatim from the original index.html.
-   No values, questions, or wording were changed. */
+   Static game data. No values, questions, or wording were changed. */
 
 export const CONFIG = {
     startChecking: 300000,
@@ -13,20 +12,16 @@ export const CONFIG = {
     bankruptcyThreshold: 0.10,
     opportunityEvery: 5,
     burnoutLoseThreshold: 90,
-    // Flat percentage-point deltas applied to the 0-100 burnout meter per
-    // daily-choice tier: frugal choices are mentally taxing (burnout up),
-    // indulgent/spendthrift choices relieve stress (burnout down).
     burnoutDeltas: [15, 5, -10, -20],
+    portfolioRealizeEveryMonths: 6,
+    portfolioTaxRate: 0.10,
+    specialInvestmentEveryMonths: 6,
     inflation: { min: 0.004, max: 0.007 },
-    // Every daily-choice option shifts fixedExpenses by one of these four
-    // percentage ranges (never touches checking directly). Tier 2/3 are
-    // the exact ranges given for "מפנק"/"פזrן"; tier 0/1 mirror them
-    // symmetrically downward for the frugal choices.
     expenseImpact: [
-      { min: -0.0060, max: -0.0044 }, // most frugal — biggest decrease
-      { min: -0.0042, max: -0.0020 }, // balanced — small decrease
-      { min:  0.0020, max:  0.0042 }, // indulgent — moderate increase
-      { min:  0.0044, max:  0.0060 }  // spendthrift — biggest increase
+      { min: -0.0060, max: -0.0044 },
+      { min: -0.0042, max: -0.0020 },
+      { min:  0.0020, max:  0.0042 },
+      { min:  0.0044, max:  0.0060 }
     ],
     investCostShareOfCapitalCap: 0.6
 };
@@ -178,13 +173,6 @@ export const BURNOUT_QUOTES = [
     "הראש התרוקן לפני הארנק התמלא. הדירה תצטרך לחכות לגרסה רגועה יותר שלך."
 ];
 
-/* ============ PORTFOLIO_TRACKS (V1.8 stock-portfolio engine, phase A) ============
-   Each track lists its possible monthly returns with a weight (not a
-   probability — weights are normalized against their own sum at pick
-   time, so they don't need to add up to 100 or any particular total).
-   This starting distribution is intentionally simple and provisional —
-   a rebalancing pass is planned for later; only the mechanism itself
-   needs to work correctly right now. */
 export const PORTFOLIO_TRACKS = {
     conservative: {
         label: "סולידי",
@@ -221,3 +209,53 @@ export const PORTFOLIO_TRACKS = {
         ]
     }
 };
+
+const OUTCOME_TEMPLATES = {
+    low: [
+        { multiplier: 0.7, weight: 10 },
+        { multiplier: 1.0, weight: 20 },
+        { multiplier: 1.3, weight: 35 },
+        { multiplier: 1.6, weight: 25 },
+        { multiplier: 2.0, weight: 10 }
+    ],
+    medium: [
+        { multiplier: 0.3, weight: 15 },
+        { multiplier: 0.8, weight: 20 },
+        { multiplier: 1.2, weight: 25 },
+        { multiplier: 2.0, weight: 25 },
+        { multiplier: 3.0, weight: 12 },
+        { multiplier: 5.0, weight: 3 }
+    ],
+    high: [
+        { multiplier: 0.0, weight: 30 },
+        { multiplier: 0.3, weight: 20 },
+        { multiplier: 1.0, weight: 15 },
+        { multiplier: 2.5, weight: 20 },
+        { multiplier: 5.0, weight: 10 },
+        { multiplier: 10.0, weight: 5 }
+    ],
+    extreme: [
+        { multiplier: 0.0, weight: 95 },
+        { multiplier: 1.0, weight: 2 },
+        { multiplier: 5.0, weight: 2 },
+        { multiplier: 50.0, weight: 1 }
+    ]
+};
+
+export const SPECIAL_INVESTMENTS = [
+    { key:"reit", name:"קרן נדל\"ן (REIT)", risk:"סיכון נמוך", desc:"השקעה בתעודה שמחזיקה בכמה נכסי נדל\"ן יחד, בלי לקנות נכס שלם בעצמך.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.low },
+    { key:"land", name:"קרקע", risk:"סיכון נמוך", desc:"קונים חלקת אדמה ומקווים שהערך שלה יעלה עם הזמן.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.low },
+    { key:"vending", name:"מכונות ממכר", risk:"סיכון נמוך-בינוני", desc:"משקיעים במכונה שמוכרת מוצרים אוטומטית ומניבה הכנסה קבועה.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.low },
+    { key:"partnership", name:"שותפות בעסק שכונתי", risk:"סיכון נמוך-בינוני", desc:"הופכים לשותפים קטנים בעסק מקומי קיים, כמו מכולת או מספרה.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.low },
+    { key:"stand", name:"דוכן מזון", risk:"סיכון בינוני", desc:"מממנים דוכן או פודטראק שמוכר אוכל, עם הכנסה תלוית ביקוש.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.medium },
+    { key:"spice_shop", name:"חנות תבלינים", risk:"סיכון בינוני", desc:"משקיעים בחנות קטנה ומיוחדת שמוכרת תבלינים ומוצרי בוטיק.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.medium },
+    { key:"vacation_rental", name:"דירת נופש להשכרה", risk:"סיכון בינוני", desc:"קונים או משפצים דירה ומשכירים אותה לתיירים לטווח קצר.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.medium },
+    { key:"vintage_car", name:"שיפוץ ומכירת רכב וינטג'", risk:"סיכון בינוני-גבוה", desc:"קונים רכב ישן, משפצים ומוכרים אותו ברווח, אם יש קונה.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.medium },
+    { key:"stocks", name:"מסחר בבורסה", risk:"סיכון בינוני-גבוה", desc:"קונים מניות ומקווים שהשוק יעלה.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.medium },
+    { key:"forex", name:"מסחר במטבע חוץ", risk:"סיכון בינוני-גבוה", desc:"מנסים להרוויח מהפרשי שער בין מטבעות שונים.", appearanceWeight:10, outcomes: OUTCOME_TEMPLATES.medium },
+    { key:"art", name:"אמנות ואספנות", risk:"סיכון גבוה", desc:"קונים יצירת אמנות או פריט נדיר ומקווים שהערך שלו יעלה עם הזמן.", appearanceWeight:8, outcomes: OUTCOME_TEMPLATES.high },
+    { key:"startup", name:"סטארטאפ", risk:"סיכון גבוה", desc:"משקיעים בחברה חדשה בתקווה שתצליח ותשווה הרבה יותר.", appearanceWeight:8, outcomes: OUTCOME_TEMPLATES.high },
+    { key:"crypto", name:"קריפטו", risk:"סיכון גבוה מאוד", desc:"קונים מטבע דיגיטלי שהערך שלו יכול לזנק או לצנוח בלי אזהרה.", appearanceWeight:8, outcomes: OUTCOME_TEMPLATES.high },
+    { key:"options", name:"אופציות ומסחר ממונף", risk:"סיכון קיצוני", desc:"משקיעים סכום קטן שיכול להניב רווח ענק, או להימחק כליל, תוך זמן קצר.", appearanceWeight:4, outcomes: OUTCOME_TEMPLATES.extreme },
+    { key:"lotto", name:"לוטו", risk:"סיכון קיצוני", desc:"קונים כרטיס הגרלה. כמעט תמיד מפסידים, אבל הזכייה משנה הכל.", appearanceWeight:4, outcomes: OUTCOME_TEMPLATES.extreme }
+];
