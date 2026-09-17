@@ -232,6 +232,10 @@
   .portfolio-track-btn:active,.portfolio-pct-btn:active{transform:scale(0.98);}
   .pt-title{font-family:'Rubik',sans-serif;font-weight:700;font-size:15.5px;color:var(--ink);}
   .pt-sub{font-size:12.5px;color:var(--ink-dim);margin-top:3px;}
+  .portfolio-locked-note{font-size:14px;color:var(--ink-dim);line-height:1.6;}
+  .portfolio-realize-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .portfolio-realize-row:last-of-type{border-bottom:none;}
+  .portfolio-realize-row.total{font-weight:700;color:var(--mint);font-family:'Rubik',sans-serif;padding-top:10px;border-top:2px solid var(--line);margin-top:4px;}
 
   /* month summary rows — color only, no arrow glyphs anywhere */
   .ms-row{padding:10px 0;border-bottom:1px solid var(--line);}
