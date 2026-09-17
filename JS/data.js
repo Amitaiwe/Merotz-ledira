@@ -1,5 +1,6 @@
 /* ============ data.js ============
-   Static game data. No values, questions, or wording were changed. */
+   Static game data extracted verbatim from the original index.html.
+   No values, questions, or wording were changed. */
 
 export const CONFIG = {
     startChecking: 300000,
@@ -12,16 +13,28 @@ export const CONFIG = {
     bankruptcyThreshold: 0.10,
     opportunityEvery: 5,
     burnoutLoseThreshold: 90,
+    // Flat percentage-point deltas applied to the 0-100 burnout meter per
+    // daily-choice tier: frugal choices are mentally taxing (burnout up),
+    // indulgent/spendthrift choices relieve stress (burnout down).
     burnoutDeltas: [15, 5, -10, -20],
+    // Stock-portfolio realization (Stage B1): can only fully liquidate on
+    // a turn number that's a multiple of this, and pays this tax rate on
+    // any profit (never on a loss or break-even).
     portfolioRealizeEveryMonths: 6,
     portfolioTaxRate: 0.10,
+    // Stage B2.1: a special-investment opportunity is offered on the
+    // same monthly cadence as portfolio realization (month 6, 12, 18...).
     specialInvestmentEveryMonths: 6,
     inflation: { min: 0.004, max: 0.007 },
+    // Every daily-choice option shifts fixedExpenses by one of these four
+    // percentage ranges (never touches checking directly). Tier 2/3 are
+    // the exact ranges given for "מפנק"/"פזrן"; tier 0/1 mirror them
+    // symmetrically downward for the frugal choices.
     expenseImpact: [
-      { min: -0.0060, max: -0.0044 },
-      { min: -0.0042, max: -0.0020 },
-      { min:  0.0020, max:  0.0042 },
-      { min:  0.0044, max:  0.0060 }
+      { min: -0.0060, max: -0.0044 }, // most frugal — biggest decrease
+      { min: -0.0042, max: -0.0020 }, // balanced — small decrease
+      { min:  0.0020, max:  0.0042 }, // indulgent — moderate increase
+      { min:  0.0044, max:  0.0060 }  // spendthrift — biggest increase
     ],
     investCostShareOfCapitalCap: 0.6
 };
@@ -173,6 +186,13 @@ export const BURNOUT_QUOTES = [
     "הראש התרוקן לפני הארנק התמלא. הדירה תצטרך לחכות לגרסה רגועה יותר שלך."
 ];
 
+/* ============ PORTFOLIO_TRACKS (V1.8 stock-portfolio engine, phase A) ============
+   Each track lists its possible monthly returns with a weight (not a
+   probability — weights are normalized against their own sum at pick
+   time, so they don't need to add up to 100 or any particular total).
+   This starting distribution is intentionally simple and provisional —
+   a rebalancing pass is planned for later; only the mechanism itself
+   needs to work correctly right now. */
 export const PORTFOLIO_TRACKS = {
     conservative: {
         label: "סולידי",
@@ -209,6 +229,17 @@ export const PORTFOLIO_TRACKS = {
         ]
     }
 };
+
+/* ============ SPECIAL_INVESTMENTS (Stage B2.1 — foundation only) ============
+   A new special-investment opportunity is offered every
+   CONFIG.specialInvestmentEveryMonths months, picked with a weighted
+   random draw from this centralized list. Each type reuses the name/
+   description/relative-risk framing of the existing (old, untouched)
+   INVESTMENTS list, plus a new "לוטו" type as requested. Outcomes are
+   a weighted list of payout multipliers applied to whatever amount is
+   eventually invested (0 = total loss, 1 = break-even, >1 = profit) —
+   resolution logic itself is NOT part of this stage. Weights are a
+   reasonable starting point only; balancing is a later pass. */
 
 const OUTCOME_TEMPLATES = {
     low: [

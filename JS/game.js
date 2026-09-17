@@ -2,10 +2,21 @@
    Game state and game-flow logic: building turns, the central money
    ledger, the daily-choice mechanic (lifestyle drift on fixed
    expenses), investment opportunities, monthly cashflow/inflation,
-   and win/lose decisions. */
+   and win/lose decisions.
 
-import { CONFIG, QUESTIONS, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES, BURNOUT_QUOTES, PORTFOLIO_TRACKS, SPECIAL_INVESTMENTS } from './data.js';
-import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showToast, showMonthSummary, renderWinScreen, renderLoseScreen, renderSpecialInvestmentDecision } from './ui.js';
+   NOTE: a few lines here still touch the DOM directly (disabling
+   buttons to prevent double-clicks, writing the turn counter, reading
+   the nickname input) because in the original code these were single
+   inline statements inside otherwise pure game-flow functions. Moving
+   just those lines into ui.js would have meant passing extra
+   parameters through several functions purely to relocate one
+   statement each — a structural change beyond "just relocate the
+   code", so per the instruction to preserve behavior over strict
+   layering, they stay here using the imported `$` helper. This is
+   disclosed explicitly in the summary. */
+
+import { CONFIG, QUESTIONS, INVESTMENTS, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES, BURNOUT_QUOTES, PORTFOLIO_TRACKS, SPECIAL_INVESTMENTS } from './data.js';
+import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showToast, showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
 import { recordGamePlayed, recordGameWon, saveNickname } from './firebase.js';
 
 export let state = {};
@@ -23,7 +34,16 @@ export function shuffle(arr){
   return a;
 }
 
-/* ============ CENTRAL MONEY LEDGER ============ */
+/* ============ CENTRAL MONEY LEDGER ============
+   Every change to the checking account or to fixed expenses goes
+   through one of these two functions, tagged with its source
+   (currently just a string, for future traceability). This is what
+   keeps the different systems that touch money — monthly cashflow,
+   investment opportunities, and daily-choice lifestyle drift — from
+   silently overlapping or getting mixed into monthSummary in a way
+   that can't be traced back to its cause. Nothing else in the
+   codebase should mutate state.checkingAccount / state.fixedExpenses
+   directly. */
 export function applyCheckingChange(amount, source){
   state.checkingAccount = Math.max(0, state.checkingAccount + amount);
 }
@@ -33,20 +53,33 @@ export function applyExpenseChange(percent, source){
   state.fixedExpenses = Math.max(CONFIG.minFixedExpenses, next);
 }
 
+// state.investmentPortfolio is the existing field that already feeds
+// win/bankruptcy checks and monthSummary — the new stock-portfolio
+// engine below writes to it through this function so all of that
+// keeps working completely unmodified.
 export function applyPortfolioChange(amount, source){
   state.investmentPortfolio = Math.max(0, state.investmentPortfolio + amount);
 }
 
 /* ============ GAME SETUP ============ */
 export function buildSlots(){
-  // B2.3: המערכת הישנה של הזדמנות כל 5 תורים בוטלה.
-  // כל התורים הם שאלות; הזדמנויות מיוחדות מגיעות אך ורק דרך
-  // maybeGenerateSpecialInvestment() בחודשים 6/12/18/...
   const gameLength = CONFIG.maxTurns;
-  const questionPool = shuffle(QUESTIONS).slice(0, Math.min(gameLength, QUESTIONS.length));
+  const numOpportunities = Math.floor(gameLength / CONFIG.opportunityEvery);
+  const numQuestions = gameLength - numOpportunities;
+
+  const questionPool = shuffle(QUESTIONS).slice(0, numQuestions);
+  const investmentPool = shuffle(INVESTMENTS);
+
   let slots = [];
+  let qi = 0, ii = 0;
   for(let turn=1; turn<=gameLength; turn++){
-    slots.push({ type:'question', data: questionPool[(turn-1) % questionPool.length] });
+    if(turn % CONFIG.opportunityEvery === 0){
+      slots.push({ type:'opportunity', data: investmentPool[ii % investmentPool.length] });
+      ii++;
+    } else {
+      slots.push({ type:'question', data: questionPool[qi] });
+      qi++;
+    }
   }
   return { slots, gameLength };
 }
@@ -76,8 +109,6 @@ export function newGame(){
       type: null,
       offeredAtTurn: null
     },
-    specialInvestmentDecision: null,
-    specialInvestmentResult: null,
     slots: built.slots,
     index: 0,
     total: built.gameLength,
@@ -90,7 +121,13 @@ export function newGame(){
   showScreen('game');
 }
 
-/* ============ STOCK PORTFOLIO ENGINE (V1.8, phase A) ============ */
+/* ============ STOCK PORTFOLIO ENGINE (V1.8, phase A) ============
+   A player can hold at most one portfolio at a time (state.stockPortfolio).
+   Its current value lives in state.investmentPortfolio (see note above
+   applyPortfolioChange) so every existing system that already reads
+   that field — win/bankruptcy checks, monthSummary, the topbar display —
+   keeps working with zero changes. */
+
 function pickWeightedReturn(returns){
   const totalWeight = returns.reduce((sum, r) => sum + r.weight, 0);
   let roll = Math.random() * totalWeight;
@@ -98,17 +135,17 @@ function pickWeightedReturn(returns){
     if(roll < r.weight) return r.pct;
     roll -= r.weight;
   }
-  return returns[returns.length - 1].pct;
+  return returns[returns.length - 1].pct; // fallback safety, should not normally hit
 }
 
 export function canOpenNewPortfolio(){
-  if(state.stockPortfolio.active) return false;
+  if(state.stockPortfolio.active) return false; // one active at a time — use depositToPortfolio instead
   if(state.portfolioClosedAtTurn === null) return true;
   return (state.index + 1) > state.portfolioClosedAtTurn;
 }
 
 export function openPortfolio(track, percent){
-  if(!canOpenNewPortfolio()) return;
+  if(!canOpenNewPortfolio()) return; // blocked at the logic level, not just hidden in the UI
   if(track !== 'conservative' && track !== 'risky') return;
 
   const amount = state.checkingAccount * percent;
@@ -125,7 +162,7 @@ export function openPortfolio(track, percent){
 }
 
 export function depositToPortfolio(percent){
-  if(!state.stockPortfolio.active) return;
+  if(!state.stockPortfolio.active) return; // nothing to deposit into yet
 
   const amount = state.checkingAccount * percent;
   applyCheckingChange(-amount, 'portfolio-deposit');
@@ -139,14 +176,14 @@ export function canRealizePortfolio(){
 }
 
 export function realizePortfolio(){
-  if(!canRealizePortfolio()) return;
+  if(!canRealizePortfolio()) return; // blocked at the logic level, not just hidden in the UI
 
   const grossValue = state.investmentPortfolio;
   const profit = grossValue - state.stockPortfolio.totalDeposited;
   const tax = profit > 0 ? profit * CONFIG.portfolioTaxRate : 0;
   const netReturned = grossValue - tax;
 
-  applyPortfolioChange(-grossValue, 'portfolio-realize');
+  applyPortfolioChange(-grossValue, 'portfolio-realize'); // empty the portfolio
   applyCheckingChange(netReturned, 'portfolio-realize');
 
   state.lastPortfolioRealization = {
@@ -175,7 +212,13 @@ function applyPortfolioMonthlyReturn(){
   state.stockPortfolio.lastReturnPct = returnPct;
 }
 
-/* ============ SPECIAL INVESTMENT (B2.1 + B2.2 + B2.3) ============ */
+/* ============ SPECIAL INVESTMENT OPPORTUNITY (Stage B2.1 — foundation only) ============
+   Generates (or clears) the current special-investment offer on the
+   same monthly cadence as portfolio realization. This stage only
+   produces and stores the offer — buying it, funding it from the
+   portfolio, showing it to the player, and resolving its outcome are
+   all separate, later stages. */
+
 export function isSpecialInvestmentMonth(){
   return (state.index + 1) % CONFIG.specialInvestmentEveryMonths === 0;
 }
@@ -187,7 +230,7 @@ function pickWeightedSpecialInvestment(){
     if(roll < inv.appearanceWeight) return inv;
     roll -= inv.appearanceWeight;
   }
-  return SPECIAL_INVESTMENTS[SPECIAL_INVESTMENTS.length - 1];
+  return SPECIAL_INVESTMENTS[SPECIAL_INVESTMENTS.length - 1]; // fallback safety
 }
 
 function maybeGenerateSpecialInvestment(){
@@ -203,131 +246,9 @@ function maybeGenerateSpecialInvestment(){
   };
 }
 
-/* --- B2.2: חישובי סכום ומימון --- */
-export function computeSpecialInvestmentAmount(){
-  if(!state.specialInvestment.active) return 0;
-  const totalWealth = state.checkingAccount + state.investmentPortfolio;
-  const remainingGap = Math.max(state.apartmentPrice - totalWealth, state.apartmentPrice * 0.15);
-  const costPct = 0.10;
-  let cost = costPct * remainingGap;
-  cost = Math.max(cost, 1000);
-  return Math.round(cost);
-}
-
-export function getExpectedPortfolioNet(){
-  if(!state.stockPortfolio.active) return 0;
-  const grossValue = state.investmentPortfolio;
-  const profit = grossValue - state.stockPortfolio.totalDeposited;
-  const tax = profit > 0 ? profit * CONFIG.portfolioTaxRate : 0;
-  return Math.max(0, grossValue - tax);
-}
-
-export function canFundSpecialInvestment(fundingSource){
-  if(!state.specialInvestment.active) return false;
-  const amount = computeSpecialInvestmentAmount();
-  if(fundingSource === 'checking'){
-    return state.checkingAccount >= amount;
-  }
-  if(fundingSource === 'portfolio'){
-    return state.stockPortfolio.active && getExpectedPortfolioNet() >= amount;
-  }
-  return false;
-}
-
-export function decideSpecialInvestmentFunding(fundingSource){
-  if(!state.specialInvestment.active) return null;
-  const amount = computeSpecialInvestmentAmount();
-
-  if(fundingSource === 'portfolio'){
-    if(!canFundSpecialInvestment('portfolio')) return null;
-    realizePortfolio(); // ← B1 בדיוק כפי שהוא
-  } else if(fundingSource === 'checking'){
-    if(!canFundSpecialInvestment('checking')) return null;
-  } else {
-    return null;
-  }
-
-  applyCheckingChange(-amount, 'special-investment-funding');
-
-  const inv = SPECIAL_INVESTMENTS.find(i => i.key === state.specialInvestment.type);
-  const decision = {
-    key: inv.key,
-    name: inv.name,
-    desc: inv.desc,
-    amount,
-    fundingSource,
-    decidedAtTurn: state.index + 1
-  };
-  state.specialInvestmentDecision = decision;
-  return decision;
-}
-
-/* --- B2.3: הגרלת outcome + הכרעה --- */
-function pickWeightedOutcome(outcomes){
-  const totalWeight = outcomes.reduce((sum, o) => sum + o.weight, 0);
-  let roll = Math.random() * totalWeight;
-  for(const o of outcomes){
-    if(roll < o.weight) return o.multiplier;
-    roll -= o.weight;
-  }
-  return outcomes[outcomes.length - 1].multiplier;
-}
-
-export function resolveSpecialInvestment(){
-  const decision = state.specialInvestmentDecision;
-  if(!decision || decision.declined) return null;
-
-  const inv = SPECIAL_INVESTMENTS.find(i => i.key === decision.key);
-  const multiplier = pickWeightedOutcome(inv.outcomes);
-  const payout = Math.round(decision.amount * multiplier);
-  const profit = payout - decision.amount;
-
-  // רווח/הפסד מיוחד — לא כפוף למס 10% של הבורסה
-  applyCheckingChange(payout, 'special-investment-payout');
-
-  state.specialInvestmentResult = {
-    key: inv.key,
-    name: inv.name,
-    amount: decision.amount,
-    fundingSource: decision.fundingSource,
-    multiplier,
-    payout,
-    profit,
-    turn: state.index + 1
-  };
-
-  state.specialInvestment = { active: false, type: null, offeredAtTurn: null };
-  state.specialInvestmentDecision = null;
-
-  updateStats(true);
-  return state.specialInvestmentResult;
-}
-
-export function declineSpecialInvestment(){
-  if(!state.specialInvestment.active) return false;
-  state.specialInvestmentDecision = {
-    amount: computeSpecialInvestmentAmount(),
-    fundingSource: null,
-    declined: true,
-    decidedAtTurn: state.index + 1
-  };
-  state.specialInvestment = { active: false, type: null, offeredAtTurn: null };
-  return true;
-}
-
-/* ============ RENDER / FLOW ============ */
 export function renderSlot(){
   const slot = state.slots[state.index];
   $('qCounter').textContent = 'תור ' + (state.index+1);
-
-  if(state.specialInvestment.active && isSpecialInvestmentMonth()){
-    const inv = SPECIAL_INVESTMENTS.find(i => i.key === state.specialInvestment.type);
-    if(inv){
-      renderSpecialInvestmentDecision(inv);
-      return;
-    }
-  }
-
   if(slot.type === 'question'){
     renderQuestion(slot.data);
   } else {
@@ -335,10 +256,14 @@ export function renderSlot(){
   }
 }
 
-/* ---------- daily choice ---------- */
+/* ---------- daily choice: shifts fixed expenses + burnout, never checking ---------- */
 export function chooseOption(tier, btnEl){
   document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
 
+  // captured BEFORE applyExpenseChange runs, so monthSummary can show the
+  // true before/after for this turn's choice — capturing it later (inside
+  // applyInflationAndAdvance, after the change already happened) was
+  // exactly the bug that made the expenses delta always show 0.
   const fixedExpensesBeforeChoice = state.fixedExpenses;
 
   const impact = CONFIG.expenseImpact[tier];
@@ -349,6 +274,8 @@ export function chooseOption(tier, btnEl){
   updateStats(true);
 
   if(state.burnout >= CONFIG.burnoutLoseThreshold){
+    // immediate game over — no monthly cashflow, no summary modal, no
+    // further inflation for this turn
     setTimeout(() => finishGame(false, 'burnout'), 400);
     return;
   }
@@ -408,9 +335,14 @@ export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, 
   }, waitTime + 1200);
 }
 
-/* ---------- monthly cashflow + inflation ---------- */
+/* ---------- shared flow: monthly cashflow + apartment-price inflation ---------- */
 export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
   const salaryBefore = state.salary;
+  // On a question turn, chooseOption already applied this turn's expense
+  // change before calling us, so state.fixedExpenses no longer reflects
+  // "before" — the caller passes the true pre-choice value instead. On an
+  // investment-opportunity turn (or skip), nothing has touched expenses
+  // this turn, so reading state.fixedExpenses directly is still correct.
   const fixedExpensesBefore = (fixedExpensesBeforeOverride !== undefined)
     ? fixedExpensesBeforeOverride
     : state.fixedExpenses;
