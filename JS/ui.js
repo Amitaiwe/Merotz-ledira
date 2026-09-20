@@ -97,6 +97,26 @@ export function renderSpecialInvestment(inv){
   const chancePct = Math.round(state.specialInvestment.rolledChance * 10) / 10;
   const checking = state.checkingAccount;
 
+  const eligible = CONFIG.specialInvestmentPercentOptions
+    .filter(p => checking * p >= CONFIG.specialInvestmentMinAmount);
+
+  if(eligible.length === 0){
+    const q = QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
+    renderQuestion(q);
+    return;
+  }
+
+  // show example figures based on the smallest eligible investment amount
+  const smallestPct = eligible[0];
+  const smallestAmount = checking * smallestPct;
+  const payoutMult = state.specialInvestment.rolledPayout;
+  const lossMult = state.specialInvestment.rolledLoss;
+  const winProfit = smallestAmount * payoutMult - smallestAmount;
+  const lossProfit = smallestAmount * lossMult - smallestAmount; // negative
+
+  const winText = (winProfit >= 0 ? '+' : '-') + fmt(Math.abs(winProfit));
+  const lossText = (lossProfit >= 0 ? '+' : '-') + fmt(Math.abs(lossProfit));
+
   $('mainCard').classList.remove('flash-win','flash-lose');
   $('cardContent').innerHTML =
     '<div class="opp-label">הזדמנות השקעה</div>' +
@@ -109,21 +129,23 @@ export function renderSpecialInvestment(inv){
         '<div class="pct-lbl">סיכוי הצלחה</div></div>' +
       '</div>' +
     '</div>' +
+    '<div class="special-figures">' +
+      '<div class="sf-row win">' +
+        '<span class="sf-lbl">בהצלחה</span>' +
+        '<span class="sf-amt">' + winText + '</span>' +
+      '</div>' +
+      '<div class="sf-row lose">' +
+        '<span class="sf-lbl">בכישלון</span>' +
+        '<span class="sf-amt">' + lossText + '</span>' +
+      '</div>' +
+      '<div class="sf-note">על השקעה של ' + fmt(smallestAmount) + '</div>' +
+    '</div>' +
     '<div class="opp-result" id="oppResult"></div>';
 
   $('oppInfoBtn').addEventListener('click', () => openInfoModal(inv.name, inv.desc));
 
   const optWrap = $('options');
   optWrap.innerHTML = '';
-
-  const eligible = CONFIG.specialInvestmentPercentOptions
-    .filter(p => checking * p >= CONFIG.specialInvestmentMinAmount);
-
-  if(eligible.length === 0){
-    const q = QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
-    renderQuestion(q);
-    return;
-  }
 
   eligible.forEach(p => {
     const amount = checking * p;
@@ -480,4 +502,4 @@ export function showMonthSummary(ms){
 
 export function closeMonthSummary(){
   $('monthSummaryModal').classList.remove('show');
-}
+       }
