@@ -36,7 +36,10 @@
       <input type="text" class="nickname-input" id="nicknameInput" placeholder="כינוי לתצוגה (רשות)" maxlength="16">
     </div>
 
-    <button class="btn-primary" id="startBtn">מתחילים</button>
+    <div class="start-actions">
+      <button class="btn-primary" id="continueBtn" style="display:none;">המשך משחק</button>
+      <button class="btn-primary" id="newGameBtn">מתחילים</button>
+    </div>
 
     <div class="global-stats">
       <div class="global-stat">
@@ -54,7 +57,7 @@
       </div>
     </div>
 
-    <div class="version-tag">V1.8</div>
+    <div class="version-tag">V1.9</div>
   </div>
 
   <!-- GAME SCREEN -->
@@ -71,6 +74,7 @@
           <div class="num" id="priceNum">0 ₪</div>
         </div>
       </div>
+      <div class="net-worth" id="netWorthLine">סה"כ נטו (עו"ש + תיק): 0 ₪</div>
       <div class="stat-row secondary">
         <div class="sub-stat">
           <span class="sub-lbl">משכורת</span>
@@ -91,7 +95,6 @@
           <span class="sub-num" id="portfolioNum">0 ₪</span>
           <div class="portfolio-meta" id="portfolioMeta"></div>
           <button class="portfolio-action-link" id="portfolioActionBtn" type="button">פתח תיק השקעות</button>
-          <button class="portfolio-action-link" id="portfolioRealizeBtn" type="button" style="display:none;">מימוש תיק</button>
         </div>
       </div>
       <div class="track-wrap">
@@ -173,11 +176,11 @@
     </div>
   </div>
 
-  <!-- PORTFOLIO MODAL -->
+  <!-- PORTFOLIO MODAL (unified) -->
   <div class="modal-overlay" id="portfolioModal">
     <div class="modal-box">
       <button class="modal-close" id="portfolioModalClose">✕</button>
-      <div class="modal-title" id="portfolioModalTitle">פתיחת תיק השקעות</div>
+      <div class="modal-title" id="portfolioModalTitle">תיק ההשקעות שלי</div>
       <div class="modal-text" id="portfolioModalText"></div>
     </div>
   </div>
