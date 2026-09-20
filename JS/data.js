@@ -1,8 +1,7 @@
 /* ============ data.js ============
-   Static game data. Questions, investments, quotes unchanged from
-   the original. SPECIAL_INVESTMENTS now uses the new
-   chanceRange/payoutRange/lossRange model (see comment below).
-   OUTCOME_TEMPLATES kept in the file for future use, not exported. */
+   Static game data. Questions, quotes unchanged from the original.
+   INVESTMENTS and OUTCOME_TEMPLATES were removed — the unified model
+   uses only SPECIAL_INVESTMENTS, offered every 6 months. */
 
 export const CONFIG = {
     startChecking: 300000,
@@ -13,7 +12,6 @@ export const CONFIG = {
     salaryGrowth: { min: 0.01, max: 0.025 },
     maxTurns: 100,
     bankruptcyThreshold: 0.10,
-    opportunityEvery: 5,
     burnoutLoseThreshold: 90,
     burnoutDeltas: [15, 5, -10, -20],
     portfolioRealizeEveryMonths: 6,
@@ -137,23 +135,6 @@ export const QUESTIONS = [
     { emoji:"🕯️", text:"חג/מועד מתקרב", options:["קונה רק את הנדרש","קונה גם כמה תוספות","קונה הכול חדש לקראת החג","משדרג את כל האירוח"]}
 ];
 
-export const INVESTMENTS = [
-    { name:"קרן נדל\"ן (REIT)", risk:"סיכון נמוך", chance:[60,75], payout:[1.4,1.7], cost:[8,12], desc:"השקעה בתעודה שמחזיקה בכמה נכסי נדל\"ן יחד, בלי לקנות נכס שלם בעצמך." },
-    { name:"רכישת קרקע", risk:"סיכון נמוך", chance:[55,70], payout:[1.5,1.8], cost:[10,15], desc:"קונים חלקת אדמה ומקווים שהערך שלה יעלה עם הזמן." },
-    { name:"מכונות ממכר", risk:"סיכון נמוך-בינוני", chance:[55,68], payout:[1.5,1.9], cost:[8,12], desc:"משקיעים במכונה שמוכרת מוצרים אוטומטית ומניבה הכנסה קבועה." },
-    { name:"שותפות בעסק שכונתי", risk:"סיכון נמוך-בינוני", chance:[50,65], payout:[1.6,2.0], cost:[10,14], desc:"הופכים לשותפים קטנים בעסק מקומי קיים, כמו מכולת או מספרה." },
-    { name:"דוכן מזון", risk:"סיכון בינוני", chance:[45,60], payout:[1.8,2.3], cost:[10,15], desc:"מממנים דוכן או פודטראק שמוכר אוכל, עם הכנסה תלוית ביקוש." },
-    { name:"חנות תבלינים", risk:"סיכון בינוני", chance:[40,55], payout:[2.0,2.5], cost:[10,16], desc:"משקיעים בחנות קטנה ומיוחדת שמוכרת תבלינים ומוצרי בוטיק." },
-    { name:"דירת נופש להשכרה", risk:"סיכון בינוני", chance:[40,55], payout:[2.0,2.5], cost:[12,16], desc:"קונים או משפצים דירה ומשכירים אותה לתיירים לטווח קצר." },
-    { name:"שיפוץ ומכירת רכב וינטג'", risk:"סיכון בינוני-גבוה", chance:[35,50], payout:[2.2,2.8], cost:[10,15], desc:"קונים רכב ישן, משפצים ומוכרים אותו ברווח, אם יש קונה." },
-    { name:"מסחר בבורסה", risk:"סיכון בינוני-גבוה", chance:[35,50], payout:[2.2,2.8], cost:[12,18], desc:"קונים מניות ומקווים שהשוק יעלה." },
-    { name:"מסחר במטבע חוץ", risk:"סיכון בינוני-גבוה", chance:[30,45], payout:[2.5,3.2], cost:[12,18], desc:"מנסים להרוויח מהפרשי שער בין מטבעות שונים." },
-    { name:"אמנות ואספנות", risk:"סיכון גבוה", chance:[25,40], payout:[2.8,3.5], cost:[12,18], desc:"קונים יצירת אמנות או פריט נדיר ומקווים שהערך שלו יעלה עם הזמן." },
-    { name:"השקעה בסטארטאפ", risk:"סיכון גבוה", chance:[20,32], payout:[3.2,4.2], cost:[14,20], desc:"משקיעים בחברה חדשה בתקווה שתצליח ותשווה הרבה יותר." },
-    { name:"קריפטו", risk:"סיכון גבוה מאוד", chance:[15,28], payout:[3.5,5.0], cost:[14,20], desc:"קונים מטבע דיגיטלי שהערך שלו יכול לזנק או לצנוח בלי אזהרה." },
-    { name:"אופציות ומסחר ממונף", risk:"סיכון קיצוני", chance:[8,18], payout:[5.0,8.0], cost:[15,22], desc:"משקיעים סכום קטן שיכול להניב רווח ענק, או להימחק כליל, תוך זמן קצר." }
-];
-
 export const WIN_QUOTES = [
     "הבחירות הקטנות שלך הצטברו למשהו גדול.",
     "שקל ועוד שקל שווים דירה. אולי אפילו שתיים.",
@@ -215,14 +196,12 @@ export const PORTFOLIO_TRACKS = {
     }
 };
 
-/* ============ SPECIAL_INVESTMENTS (Stage B2.1 — now actually used) ============
-   Each type has:
-     - chanceRange: [min,max] success probability. At offer time we roll
-       ONE exact chancePct inside this range; the player only ever sees
-       the rolled number, never the range.
-     - payoutRange: [min,max] multiplier applied on success.
-     - lossRange:   [min,max] multiplier applied on failure (0 = total loss).
-   Ranges were expanded by ±5 from the initial draft, floored at 1. */
+/* ============ SPECIAL_INVESTMENTS ============
+   The only investment type now. Offered every 6 months. Each type has:
+     - chanceRange: [min,max] success probability (rolled once at offer,
+       player sees only the rolled number)
+     - payoutRange: [min,max] multiplier on success
+     - lossRange:   [min,max] multiplier on failure (0 = total loss) */
 export const SPECIAL_INVESTMENTS = [
   { key:"reit", name:"קרן נדל\"ן (REIT)", risk:"סיכון נמוך",
     desc:"השקעה בתעודה שמחזיקה בכמה נכסי נדל\"ן יחד, בלי לקנות נכס שלם בעצמך.",
@@ -239,67 +218,4 @@ export const SPECIAL_INVESTMENTS = [
   { key:"stand", name:"דוכן מזון", risk:"סיכון בינוני",
     desc:"מממנים דוכן או פודטראק שמוכר אוכל, עם הכנסה תלוית ביקוש.",
     appearanceWeight:10, chanceRange:[39,65], payoutRange:[1.6,2.0], lossRange:[0.4,0.6] },
-  { key:"spice_shop", name:"חנות תבלינים", risk:"סיכון בינוני",
-    desc:"משקיעים בחנות קטנה ומיוחדת שמוכרת תבלינים ומוצרי בוטיק.",
-    appearanceWeight:10, chanceRange:[37,63], payoutRange:[1.7,2.1], lossRange:[0.4,0.6] },
-  { key:"vacation_rental", name:"דירת נופש להשכרה", risk:"סיכון בינוני",
-    desc:"קונים או משפצים דירה ומשכירים אותה לתיירים לטווח קצר.",
-    appearanceWeight:10, chanceRange:[37,63], payoutRange:[1.7,2.1], lossRange:[0.3,0.5] },
-  { key:"vintage_car", name:"שיפוץ ומכירת רכב וינטג'", risk:"סיכון בינוני-גבוה",
-    desc:"קונים רכב ישן, משפצים ומוכרים אותו ברווח, אם יש קונה.",
-    appearanceWeight:10, chanceRange:[33,59], payoutRange:[1.9,2.3], lossRange:[0.3,0.5] },
-  { key:"stocks", name:"מסחר בבורסה", risk:"סיכון בינוני-גבוה",
-    desc:"קונים מניות ומקווים שהשוק יעלה.",
-    appearanceWeight:10, chanceRange:[33,59], payoutRange:[1.9,2.3], lossRange:[0.3,0.5] },
-  { key:"forex", name:"מסחר במטבע חוץ", risk:"סיכון בינוני-גבוה",
-    desc:"מנסים להרוויח מהפרשי שער בין מטבעות שונים.",
-    appearanceWeight:10, chanceRange:[29,55], payoutRange:[2.1,2.6], lossRange:[0.2,0.4] },
-  { key:"art", name:"אמנות ואספנות", risk:"סיכון גבוה",
-    desc:"קונים יצירת אמנות או פריט נדיר ומקווים שהערך שלו יעלה עם הזמן.",
-    appearanceWeight:8, chanceRange:[23,49], payoutRange:[2.3,3.0], lossRange:[0.2,0.4] },
-  { key:"startup", name:"סטארטאפ", risk:"סיכון גבוה",
-    desc:"משקיעים בחברה חדשה בתקווה שתצליח ותשווה הרבה יותר.",
-    appearanceWeight:8, chanceRange:[17,41], payoutRange:[2.8,3.8], lossRange:[0.0,0.2] },
-  { key:"crypto", name:"קריפטו", risk:"סיכון גבוה מאוד",
-    desc:"קונים מטבע דיגיטלי שהערך שלו יכול לזנק או לצנוח בלי אזהרה.",
-    appearanceWeight:8, chanceRange:[15,40], payoutRange:[2.5,3.5], lossRange:[0.0,0.2] },
-  { key:"options", name:"אופציות ומסחר ממונף", risk:"סיכון קיצוני",
-    desc:"משקיעים סכום קטן שיכול להניב רווח ענק, או להימחק כליל, תוך זמן קצר.",
-    appearanceWeight:4, chanceRange:[5,27], payoutRange:[4.0,6.0], lossRange:[0.0,0.0] },
-  { key:"lotto", name:"לוטו", risk:"סיכון קיצוני",
-    desc:"קונים כרטיס הגרלה. כמעט תמיד מפסידים, אבל הזכייה משנה הכל.",
-    appearanceWeight:4, chanceRange:[1,13], payoutRange:[10.0,20.0], lossRange:[0.0,0.0] }
-];
-
-/* OUTCOME_TEMPLATES kept for future use, not exported, not referenced. */
-const OUTCOME_TEMPLATES = {
-    low: [
-        { multiplier: 0.7, weight: 10 },
-        { multiplier: 1.0, weight: 20 },
-        { multiplier: 1.3, weight: 35 },
-        { multiplier: 1.6, weight: 25 },
-        { multiplier: 2.0, weight: 10 }
-    ],
-    medium: [
-        { multiplier: 0.3, weight: 15 },
-        { multiplier: 0.8, weight: 20 },
-        { multiplier: 1.2, weight: 25 },
-        { multiplier: 2.0, weight: 25 },
-        { multiplier: 3.0, weight: 12 },
-        { multiplier: 5.0, weight: 3 }
-    ],
-    high: [
-        { multiplier: 0.0, weight: 30 },
-        { multiplier: 0.3, weight: 20 },
-        { multiplier: 1.0, weight: 15 },
-        { multiplier: 2.5, weight: 20 },
-        { multiplier: 5.0, weight: 10 },
-        { multiplier: 10.0, weight: 5 }
-    ],
-    extreme: [
-        { multiplier: 0.0, weight: 95 },
-        { multiplier: 1.0, weight: 2 },
-        { multiplier: 5.0, weight: 2 },
-        { multiplier: 50.0, weight: 1 }
-    ]
-};
+  { key:"spice_shop", name:"חנות תבלינים", risk:"סיכון ב
