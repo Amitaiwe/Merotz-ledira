@@ -1,22 +1,12 @@
 /* ============ ui.js ============
-   Everything that reads or writes the DOM: screen switching, number
-   updates, rendering questions/investment opportunities, toasts,
-   modals, and the win/lose screen writes extracted from the original
-   finishGame().
+   Everything that reads or writes the DOM. */
 
-   NOTE ON SCOPE SHARING: the original code was one script with a single
-   shared closure, so game logic and DOM code freely called each other
-   directly. Splitting it into modules without changing behavior means
-   ui.js and game.js import from each other (a circular dependency) —
-   ui.js needs game.js's chooseOption/resolveInvestment/applyInflationAndAdvance
-   as click handlers, and game.js needs ui.js's render/update functions to
-   drive the screen. This is safe in ES modules because every cross-call
-   happens inside a function body (button click, timer), never at the
-   top level of either module, so both modules are fully loaded before
-   any of these bindings are actually used. */
-
-import { CONFIG, PORTFOLIO_TRACKS } from './data.js';
-import { state, shuffle, rand, chooseOption, resolveInvestment, applyInflationAndAdvance, openPortfolio, depositToPortfolio, canOpenNewPortfolio, canRealizePortfolio, realizePortfolio } from './game.js';
+import { CONFIG, QUESTIONS, PORTFOLIO_TRACKS } from './data.js';
+import { state, shuffle, rand, chooseOption, resolveInvestment,
+         applyInflationAndAdvance, openPortfolio, depositToPortfolio,
+         canOpenNewPortfolio, canRealizePortfolio, realizePortfolio,
+         investSpecial, skipSpecialInvestment, getSpecialInvestmentType }
+         from './game.js';
 
 export const $ = id => document.getElementById(id);
 export const fmt = n => Math.round(n).toLocaleString('he-IL') + ' ₪';
@@ -37,6 +27,11 @@ export function updateStats(animate){
   const rawPct = (totalWealth/state.apartmentPrice)*100;
   pctEl.textContent = Math.round(rawPct) + '% ממחיר הדירה';
 
+  const netEl = $('netWorthLine');
+  if(netEl){
+    netEl.textContent = 'סה"כ נטו (עו"ש + תיק): ' + fmt(totalWealth);
+  }
+
   const barPct = Math.max(4, Math.min(100, rawPct));
   $('trackFill').style.width = barPct + '%';
   $('trackMarker').style.right = barPct + '%';
@@ -48,20 +43,17 @@ export function updateStats(animate){
 
   const portfolioActionBtn = $('portfolioActionBtn');
   const portfolioMetaEl = $('portfolioMeta');
-  const portfolioRealizeBtn = $('portfolioRealizeBtn');
   if(state.stockPortfolio && state.stockPortfolio.active){
-    portfolioActionBtn.textContent = 'הפקד עוד';
+    portfolioActionBtn.textContent = 'תיק ההשקעות שלי';
     const trackLabel = PORTFOLIO_TRACKS[state.stockPortfolio.riskTrack].label;
     const lastReturn = state.stockPortfolio.lastReturnPct;
     const returnText = (lastReturn === null || lastReturn === undefined)
       ? ''
       : (' · תשואה אחרונה: ' + (lastReturn >= 0 ? '+' : '') + (Math.round(lastReturn*1000)/10) + '%');
     portfolioMetaEl.textContent = '(' + trackLabel + ')' + returnText;
-    portfolioRealizeBtn.style.display = canRealizePortfolio() ? 'block' : 'none';
   } else {
     portfolioActionBtn.textContent = 'פתח תיק השקעות';
     portfolioMetaEl.textContent = '';
-    portfolioRealizeBtn.style.display = 'none';
   }
 
   const burnoutClamped = Math.max(0, Math.min(100, state.burnout || 0));
@@ -151,6 +143,93 @@ export function renderOpportunity(inv){
   optWrap.appendChild(skipBtn);
 }
 
+/* ---------- special investment ---------- */
+export function renderSpecialInvestment(inv){
+  const chancePct = Math.round(state.specialInvestment.rolledChance * 10) / 10;
+  const checking = state.checkingAccount;
+
+  $('mainCard').classList.remove('flash-win','flash-lose');
+  $('cardContent').innerHTML =
+    '<div class="opp-label">הזדמנות השקעה מיוחדת</div>' +
+    '<div class="opp-title-row"><div class="opp-title">'+inv.name+'</div>' +
+      '<button class="info-btn" id="oppInfoBtn" type="button">?</button></div>' +
+    '<div class="opp-risk">'+inv.risk+'</div>' +
+    '<div class="opp-body">' +
+      '<div class="gauge" id="oppGauge" style="--pct:'+chancePct+'">' +
+        '<div class="gauge-inner"><div class="pct" id="oppPct">'+chancePct+'%</div>' +
+        '<div class="pct-lbl">סיכוי הצלחה</div></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="opp-result" id="oppResult"></div>';
+
+  $('oppInfoBtn').addEventListener('click', () => openInfoModal(inv.name, inv.desc));
+
+  const optWrap = $('options');
+  optWrap.innerHTML = '';
+
+  const eligible = CONFIG.specialInvestmentPercentOptions
+    .filter(p => checking * p >= CONFIG.specialInvestmentMinAmount);
+
+  if(eligible.length === 0){
+    // defensive — renderSlot already fell back if no offer, but if we
+    // somehow reach here with no eligible percent, fall back to a question
+    const q = QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)];
+    renderQuestion(q);
+    return;
+  }
+
+  eligible.forEach(p => {
+    const amount = checking * p;
+    const btn = document.createElement('button');
+    btn.className = 'option-btn special-invest-btn';
+    btn.textContent = Math.round(p*100) + '% — ' + fmt(amount);
+    btn.addEventListener('click', () => resolveSpecialInvestment(p));
+    optWrap.appendChild(btn);
+  });
+
+  const skipBtn = document.createElement('button');
+  skipBtn.className = 'btn-skip';
+  skipBtn.textContent = 'לא תודה, מדלג';
+  skipBtn.addEventListener('click', () => {
+    document.querySelectorAll('.option-btn, .btn-skip').forEach(b => b.disabled = true);
+    skipSpecialInvestment();
+    applyInflationAndAdvance();
+  });
+  optWrap.appendChild(skipBtn);
+}
+
+export function resolveSpecialInvestment(percent){
+  document.querySelectorAll('.option-btn, .btn-skip').forEach(b => b.disabled = true);
+
+  const cardEl = $('mainCard');
+  const gaugeEl = $('oppGauge');
+  const resultEl = $('oppResult');
+
+  gaugeEl.classList.add('spinning');
+  resultEl.className = 'opp-result pending';
+  resultEl.textContent = 'הגלגל מסתובב...';
+
+  const result = investSpecial(percent);
+
+  setTimeout(() => {
+    gaugeEl.classList.remove('spinning');
+    cardEl.classList.remove('flash-win','flash-lose');
+    void cardEl.offsetWidth;
+
+    if(result && result.success){
+      resultEl.className = 'opp-result win';
+      resultEl.textContent = 'ההשקעה הצליחה! +' + fmt(result.profit);
+      cardEl.classList.add('flash-win');
+    } else if(result){
+      resultEl.className = 'opp-result lose';
+      resultEl.textContent = 'ההשקעה נכשלה. הפסדת ' + fmt(Math.abs(result.profit));
+      cardEl.classList.add('flash-lose');
+    }
+  }, 1600);
+
+  setTimeout(() => { applyInflationAndAdvance(); }, 1600 + 1200);
+}
+
 export function showToast(msg){
   const t = $('toast');
   t.textContent = msg;
@@ -169,24 +248,18 @@ export function closeInfoModal(){
   $('infoModal').classList.remove('show');
 }
 
-/* ---------- portfolio modal (open / deposit / realize) ---------- */
+/* ---------- portfolio modal (unified) ---------- */
 let portfolioModalPendingTrack = null;
 
 export function openPortfolioModal(){
   portfolioModalPendingTrack = null;
   if(state.stockPortfolio && state.stockPortfolio.active){
-    renderPortfolioPercentStep(true);
+    renderPortfolioManageStep();
   } else if(!canOpenNewPortfolio()){
     renderPortfolioLockedStep();
   } else {
     renderPortfolioTrackStep();
   }
-  $('portfolioModal').classList.add('show');
-}
-
-export function openPortfolioRealizeModal(){
-  if(!canRealizePortfolio()) return; // the button shouldn't even be visible otherwise, but double-checked here too
-  renderPortfolioRealizeStep();
   $('portfolioModal').classList.add('show');
 }
 
@@ -245,6 +318,62 @@ function renderPortfolioPercentStep(isDeposit){
   });
 }
 
+function renderPortfolioManageStep(){
+  const grossValue = state.investmentPortfolio;
+  const deposited = state.stockPortfolio.totalDeposited;
+  const profit = grossValue - deposited;
+  const trackLabel = PORTFOLIO_TRACKS[state.stockPortfolio.riskTrack].label;
+  const lastReturn = state.stockPortfolio.lastReturnPct;
+  const returnText = (lastReturn === null || lastReturn === undefined)
+    ? '—'
+    : (lastReturn >= 0 ? '+' : '') + (Math.round(lastReturn*1000)/10) + '%';
+
+  const depositedThisTurn = state.stockPortfolio.depositedThisTurn;
+  const currentTurn = state.index + 1;
+  const canRealizeNow = canRealizePortfolio();
+  const monthsToRealize = CONFIG.portfolioRealizeEveryMonths - (currentTurn % CONFIG.portfolioRealizeEveryMonths);
+
+  // special-investment reminder
+  const specialInv = getSpecialInvestmentType();
+  let specialLine = '';
+  if(specialInv){
+    specialLine = '<div class="portfolio-special-note">⚡ יש הזדמנות השקעה מיוחדת שממתינה בכרטיס הראשי החודש.</div>';
+  }
+
+  let html = '';
+  html += '<div class="portfolio-realize-row"><span>מסלול</span><span>' + trackLabel + '</span></div>';
+  html += '<div class="portfolio-realize-row"><span>שווי נוכחי</span><span>' + fmt(grossValue) + '</span></div>';
+  html += '<div class="portfolio-realize-row"><span>סך הפקדות</span><span>' + fmt(deposited) + '</span></div>';
+  html += '<div class="portfolio-realize-row"><span>' + (profit >= 0 ? 'רווח' : 'הפסד') + '</span><span>' + fmt(Math.abs(profit)) + '</span></div>';
+  html += '<div class="portfolio-realize-row"><span>תשואה אחרונה</span><span>' + returnText + '</span></div>';
+  html += specialLine;
+
+  if(depositedThisTurn){
+    html += '<div class="portfolio-locked-note" style="margin-top:12px;">הפקדת כבר החודש. הפקדה נוספת תתאפשר בחודש הבא.</div>';
+  } else {
+    html += '<button class="btn-primary" id="portfolioDepositBtn" style="margin-top:14px;" type="button">הפקד לתיק</button>';
+  }
+
+  if(canRealizeNow){
+    html += '<button class="btn-secondary" id="portfolioRealizeOpenBtn" style="margin-top:10px;" type="button">מימוש תיק</button>';
+  } else {
+    const waitMonths = (depositedThisTurn ? monthsToRealize : (monthsToRealize === 0 ? CONFIG.portfolioRealizeEveryMonths : monthsToRealize));
+    const note = depositedThisTurn
+      ? 'לא ניתן לממש בחודש שבו הפקדת.'
+      : 'ניתן לממש בעוד ' + waitMonths + ' חודשים.';
+    html += '<div class="portfolio-locked-note" style="margin-top:12px;">' + note + '</div>';
+  }
+
+  $('portfolioModalTitle').textContent = 'תיק ההשקעות שלי';
+  $('portfolioModalText').innerHTML = html;
+
+  const depBtn = $('portfolioDepositBtn');
+  if(depBtn) depBtn.addEventListener('click', () => renderPortfolioPercentStep(true));
+
+  const realBtn = $('portfolioRealizeOpenBtn');
+  if(realBtn) realBtn.addEventListener('click', () => renderPortfolioRealizeStep());
+}
+
 function renderPortfolioRealizeStep(){
   const grossValue = state.investmentPortfolio;
   const deposited = state.stockPortfolio.totalDeposited;
@@ -268,7 +397,7 @@ function renderPortfolioRealizeStep(){
   });
 }
 
-/* ---------- win / lose screens (DOM-writing part of the original finishGame) ---------- */
+/* ---------- win / lose screens ---------- */
 export function renderWinScreen(quote){
   $('winCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
   $('winPrice').textContent = fmt(state.apartmentPrice);
@@ -284,22 +413,7 @@ export function renderLoseScreen(quote, reason){
   showScreen('lose');
 }
 
-/* ---------- month summary modal (V1.8 step 1B) ----------
-   Reads only fields already present on the monthSummary object handed
-   to it by game.js (state.monthSummary) — no independent recomputation
-   of salary/expenses/checking/price. The one derived value, monthly
-   cash flow, is computed purely as salaryBefore-fixedExpensesBefore /
-   salaryAfter-fixedExpensesAfter from those same already-authoritative
-   fields (not re-simulated), so it can never drift from the engine.
-
-   No arrow characters are used anywhere, per the explicit "no arrows"
-   requirement — direction/meaning is conveyed by color only:
-   green = this change moved the player closer to the apartment,
-   red = this change moved the player further away,
-   neutral = unchanged. Which direction counts as "good" is field-
-   specific (salary up = good, expenses up = bad, etc.), never a
-   blanket "number went up = green" rule. */
-
+/* ---------- month summary ---------- */
 function msSentiment(before, after, higherIsGood){
   if(after === before) return 'neutral';
   const wentUp = after > before;
@@ -332,18 +446,61 @@ function msRow(label, before, after, higherIsGood, formatter){
 
 export function showMonthSummary(monthSummary){
   const cashFlowBefore = monthSummary.salaryBefore - monthSummary.fixedExpensesBefore;
-  const cashFlowAfter = monthSummary.salaryAfter - monthSummary.fixedExpensesAfter;
+  const cashFlowAfter  = monthSummary.salaryAfter  - monthSummary.fixedExpensesAfter;
 
   const percentBefore = ((monthSummary.checkingBefore + monthSummary.investmentPortfolioBefore) / monthSummary.apartmentPriceBefore) * 100;
-  const percentAfter = ((monthSummary.checkingAfter + monthSummary.investmentPortfolioAfter) / monthSummary.apartmentPriceAfter) * 100;
+  const percentAfter  = ((monthSummary.checkingAfter  + monthSummary.investmentPortfolioAfter)  / monthSummary.apartmentPriceAfter)  * 100;
 
   let html = '';
+
+  // 1) market return line — always shown; says "no portfolio" if none
+  if(monthSummary.portfolioReturnPct === null || monthSummary.portfolioReturnPct === undefined){
+    html += '<div class="ms-row ms-market neutral">' +
+      '<div class="ms-row-top"><span class="ms-dot neutral"></span>' +
+      '<span class="ms-label">לא היה תיק השקעות פעיל החודש</span></div>' +
+    '</div>';
+  } else {
+    const pct = monthSummary.portfolioReturnPct;
+    const before = monthSummary.investmentPortfolioBefore;
+    const after  = monthSummary.investmentPortfolioAfter;
+    const delta  = after - before;
+    const sentiment = pct > 0 ? 'positive' : (pct < 0 ? 'negative' : 'neutral');
+    const pctStr = (pct >= 0 ? '+' : '') + (Math.round(pct*1000)/10) + '%';
+    let line;
+    if(pct === 0){
+      line = 'הבורסה לא זזה החודש';
+    } else if(delta > 0){
+      line = 'הבורסה עשתה החודש ' + pctStr + ' — הרווחת ' + fmt(delta);
+    } else if(delta < 0){
+      line = 'הבורסה עשתה החודש ' + pctStr + ' — הפסדת ' + fmt(Math.abs(delta));
+    } else {
+      line = 'הבורסה עשתה החודש ' + pctStr;
+    }
+    html += '<div class="ms-row ms-market ' + sentiment + '">' +
+      '<div class="ms-row-top"><span class="ms-dot ' + sentiment + '"></span>' +
+      '<span class="ms-label">' + line + '</span></div>' +
+    '</div>';
+  }
+
+  // 2) regular rows
   html += msRow('משכורת', monthSummary.salaryBefore, monthSummary.salaryAfter, true);
   html += msRow('הוצאות', monthSummary.fixedExpensesBefore, monthSummary.fixedExpensesAfter, false);
   html += msRow('תזרים חודשי', cashFlowBefore, cashFlowAfter, true);
   html += msRow('עו"ש', monthSummary.checkingBefore, monthSummary.checkingAfter, true);
   html += msRow('תיק השקעות', monthSummary.investmentPortfolioBefore, monthSummary.investmentPortfolioAfter, true);
   html += msRow('מחיר הדירה', monthSummary.apartmentPriceBefore, monthSummary.apartmentPriceAfter, false);
+
+  // 3) net profit line
+  const net = monthSummary.netProfit;
+  const netSent = net > 0 ? 'positive' : (net < 0 ? 'negative' : 'neutral');
+  const netText = net === 0 ? 'החודש לא היה שינוי נטו'
+    : 'החודש ' + (net > 0 ? 'הרווחת ' : 'הפסדת ') + fmt(Math.abs(net));
+  html += '<div class="ms-row ms-net ' + netSent + '">' +
+    '<div class="ms-row-top"><span class="ms-dot ' + netSent + '"></span>' +
+    '<span class="ms-label">' + netText + '</span></div>' +
+  '</div>';
+
+  // 4) total % row
   html += '<div class="ms-summary">' + msRow('סה"כ % מהדירה', percentBefore, percentAfter, true, fmtPct) + '</div>';
 
   $('monthSummaryContent').innerHTML = html;
