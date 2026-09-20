@@ -221,6 +221,33 @@
   .opp-figures .gain .amt{color:var(--mint);}
   .opp-figures .net .amt{color:var(--gold-soft);font-size:14px;}
 
+  /* special-investment win/loss preview */
+  .special-figures{
+    display:flex;flex-direction:column;gap:6px;
+    background:rgba(238,243,249,0.03);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:11px 14px;
+    margin:0 auto 14px;
+    max-width:280px;
+    width:100%;
+  }
+  .sf-row{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:14px;
+  }
+  .sf-lbl{color:var(--ink-dim);font-weight:500;}
+  .sf-amt{
+    font-family:'Rubik',sans-serif;font-weight:800;font-size:15px;
+  }
+  .sf-row.win .sf-amt{color:var(--mint);}
+  .sf-row.lose .sf-amt{color:var(--coral);}
+  .sf-note{
+    font-size:10.5px;color:var(--ink-dim);
+    text-align:center;margin-top:3px;
+    border-top:1px dashed var(--line);padding-top:5px;
+  }
+
   /* modal */
   .modal-overlay{
     position:absolute;inset:0;background:rgba(6,13,22,0.72);z-index:20;
