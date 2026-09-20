@@ -339,4 +339,145 @@ function renderPortfolioRealizeStep(){
   $('portfolioModalTitle').textContent = 'מימוש תיק ההשקעות';
   $('portfolioModalText').innerHTML =
     '<div class="portfolio-realize-row"><span>שווי התיק</span><span>' + fmt(grossValue) + '</span></div>' +
-    '<div class="portfolio-realize-row"><
+    '<div class="portfolio-realize-row"><span>סך הפקדות</span><span>' + fmt(deposited) + '</span></div>' +
+    '<div class="portfolio-realize-row"><span>' + (profit >= 0 ? 'רווח' : 'הפסד') + '</span><span>' + fmt(Math.abs(profit)) + '</span></div>' +
+    '<div class="portfolio-realize-row"><span>מס (10% מהרווח)</span><span>' + fmt(tax) + '</span></div>' +
+    '<div class="portfolio-realize-row total"><span>יחזור לעו"ש</span><span>' + fmt(netReturned) + '</span></div>' +
+    '<button class="btn-primary" id="portfolioRealizeConfirm" style="margin-top:14px;" type="button">מימוש</button>';
+
+  $('portfolioRealizeConfirm').addEventListener('click', () => {
+    realizePortfolio();
+    updateStats(true);
+    closePortfolioModal();
+  });
+}
+
+/* ---------- win / lose ---------- */
+export function renderWinScreen(quote){
+  $('winCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
+  $('winPrice').textContent = fmt(state.apartmentPrice);
+  $('winQuote').textContent = quote;
+  showScreen('win');
+}
+
+export function renderLoseScreen(quote, reason){
+  $('loseCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
+  $('losePrice').textContent = fmt(state.apartmentPrice);
+  $('loseTitle').textContent = reason === 'burnout' ? 'נשברת מעומס' : 'הדירה ברחה לך';
+  $('loseQuote').textContent = quote;
+  showScreen('lose');
+}
+
+/* ---------- month summary (card-based) ---------- */
+function signFmt(n){
+  const sign = n >= 0 ? '+' : '-';
+  return sign + fmt(Math.abs(n));
+}
+
+function fmtPct(n){
+  return Math.round(n) + '%';
+}
+
+export function showMonthSummary(ms){
+  const percentBefore = ((ms.checkingBefore + ms.investmentPortfolioBefore) / ms.apartmentPriceBefore) * 100;
+  const percentAfter  = ((ms.checkingAfter  + ms.investmentPortfolioAfter)  / ms.apartmentPriceAfter)  * 100;
+  const pctDelta = percentAfter - percentBefore;
+
+  let html = '';
+
+  /* 1) HERO — net profit + apartment progress */
+  const net = ms.netProfit;
+  const netSent = net > 0 ? 'positive' : (net < 0 ? 'negative' : 'neutral');
+  const netText = net === 0
+    ? 'החודש לא היה שינוי נטו'
+    : (net > 0 ? 'החודש הרווחת ' + fmt(net) : 'החודש הפסדת ' + fmt(Math.abs(net)));
+  const pctDeltaText = Math.abs(pctDelta) < 0.05
+    ? 'ללא שינוי באחוז מהדירה'
+    : ((pctDelta > 0 ? '+' : '−') + Math.abs(pctDelta).toFixed(1) + '% מהדירה מאז החודש שעבר');
+
+  html += '<div class="ms-hero ' + netSent + '">' +
+    '<div class="ms-hero-main">' + netText + '</div>' +
+    '<div class="ms-hero-sub">' + Math.round(percentAfter) + '% ממחיר הדירה · ' + pctDeltaText + '</div>' +
+  '</div>';
+
+  /* 2) market-return card (only if there was an active portfolio this month) */
+  if(ms.portfolioReturnPct !== null && ms.portfolioReturnPct !== undefined){
+    const pct = ms.portfolioReturnPct;
+    const delta = ms.investmentPortfolioAfter - ms.investmentPortfolioBefore;
+    const sentiment = pct > 0 ? 'positive' : (pct < 0 ? 'negative' : 'neutral');
+    const pctStr = (pct >= 0 ? '+' : '−') + Math.abs(Math.round(pct*1000)/10) + '%';
+    let line;
+    if(pct === 0){
+      line = 'הבורסה לא זזה החודש';
+    } else if(delta > 0){
+      line = 'הבורסה עשתה ' + pctStr + ' — הרווחת ' + fmt(delta);
+    } else if(delta < 0){
+      line = 'הבורסה עשתה ' + pctStr + ' — הפסדת ' + fmt(Math.abs(delta));
+    } else {
+      line = 'הבורסה עשתה ' + pctStr;
+    }
+    html += '<div class="ms-card ms-market ' + sentiment + '">' +
+      '<div class="ms-card-label">📈 תיק השקעות</div>' +
+      '<div class="ms-card-body ' + sentiment + '">' + line + '</div>' +
+    '</div>';
+  }
+
+  /* 3) special-investment card (only on months it happened) */
+  if(ms.specialInvestment){
+    const si = ms.specialInvestment;
+    const sent = si.success ? 'positive' : 'negative';
+    const line = si.success
+      ? 'השקעת ' + fmt(si.amount) + ' ב' + si.name + ' — הרווחת ' + fmt(si.profit)
+      : 'השקעת ' + fmt(si.amount) + ' ב' + si.name + ' — הפסדת ' + fmt(Math.abs(si.profit));
+    html += '<div class="ms-card ms-special ' + sent + '">' +
+      '<div class="ms-card-label">⚡ השקעה מיוחדת</div>' +
+      '<div class="ms-card-body ' + sent + '">' + line + '</div>' +
+    '</div>';
+  }
+
+  /* 4) two-up: salary + expenses */
+  const salarySent = ms.salaryAfter > ms.salaryBefore ? 'positive'
+    : (ms.salaryAfter < ms.salaryBefore ? 'negative' : 'neutral');
+  const expensesSent = ms.fixedExpensesAfter < ms.fixedExpensesBefore ? 'positive'
+    : (ms.fixedExpensesAfter > ms.fixedExpensesBefore ? 'negative' : 'neutral');
+
+  html += '<div class="ms-two-up">' +
+    '<div class="ms-tile ' + salarySent + '">' +
+      '<div class="ms-tile-label">משכורת</div>' +
+      '<div class="ms-tile-value">' + fmt(ms.salaryAfter) + '</div>' +
+      '<div class="ms-tile-delta ' + salarySent + '">' + signFmt(ms.salaryAfter - ms.salaryBefore) + '</div>' +
+    '</div>' +
+    '<div class="ms-tile ' + expensesSent + '">' +
+      '<div class="ms-tile-label">הוצאות</div>' +
+      '<div class="ms-tile-value">' + fmt(ms.fixedExpensesAfter) + '</div>' +
+      '<div class="ms-tile-delta ' + expensesSent + '">' + signFmt(ms.fixedExpensesAfter - ms.fixedExpensesBefore) + '</div>' +
+    '</div>' +
+  '</div>';
+
+  /* 5) two-up: checking + portfolio */
+  const checkingSent = ms.checkingAfter > ms.checkingBefore ? 'positive'
+    : (ms.checkingAfter < ms.checkingBefore ? 'negative' : 'neutral');
+  const portfolioSent = ms.investmentPortfolioAfter > ms.investmentPortfolioBefore ? 'positive'
+    : (ms.investmentPortfolioAfter < ms.investmentPortfolioBefore ? 'negative' : 'neutral');
+
+  html += '<div class="ms-two-up">' +
+    '<div class="ms-tile ' + checkingSent + '">' +
+      '<div class="ms-tile-label">עו"ש</div>' +
+      '<div class="ms-tile-value">' + fmt(ms.checkingAfter) + '</div>' +
+      '<div class="ms-tile-delta ' + checkingSent + '">' + signFmt(ms.checkingAfter - ms.checkingBefore) + '</div>' +
+    '</div>' +
+    '<div class="ms-tile ' + portfolioSent + '">' +
+      '<div class="ms-tile-label">תיק השקעות</div>' +
+      '<div class="ms-tile-value">' + fmt(ms.investmentPortfolioAfter) + '</div>' +
+      '<div class="ms-tile-delta ' + portfolioSent + '">' + signFmt(ms.investmentPortfolioAfter - ms.investmentPortfolioBefore) + '</div>' +
+    '</div>' +
+  '</div>';
+
+  $('monthSummaryContent').innerHTML = html;
+  $('monthSummaryContinue').disabled = false;
+  $('monthSummaryModal').classList.add('show');
+}
+
+export function closeMonthSummary(){
+  $('monthSummaryModal').classList.remove('show');
+}
