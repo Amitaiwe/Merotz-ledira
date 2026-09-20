@@ -1,42 +1,72 @@
 /* ============ app.js ============
-   Wires everything together: top-level event listeners that were at
-   the bottom of the original inline script (start button, restart
-   buttons, modal close handlers). This is the only file that imports
-   from both game.js and ui.js as siblings, matching the original
-   code's bottom section 1:1. */
+   Wires everything together: top-level event listeners (start screen,
+   continue/new game, restart buttons, modal close handlers). */
 
-import { newGame, proceedAfterMonthSummary } from './game.js';
-import { showScreen, closeInfoModal, closeMonthSummary, openPortfolioModal, closePortfolioModal, openPortfolioRealizeModal } from './ui.js';
+import { newGame, continueGame, proceedAfterMonthSummary } from './game.js';
+import { hasSave, clearSave } from './storage.js';
+import { showScreen, closeInfoModal, closeMonthSummary,
+         openPortfolioModal, closePortfolioModal } from './ui.js';
 
 const $ = id => document.getElementById(id);
 
-$('startBtn').addEventListener('click', newGame);
-$('winRestart').addEventListener('click', () => showScreen('start'));
-$('loseRestart').addEventListener('click', () => showScreen('start'));
+/* ---------- start screen: continue / new ---------- */
+function initStartScreen(){
+  const contBtn = $('continueBtn');
+  const newBtn  = $('newGameBtn');
 
+  if(hasSave()){
+    contBtn.style.display = 'block';
+    newBtn.textContent = 'משחק חדש';
+  } else {
+    contBtn.style.display = 'none';
+    newBtn.textContent = 'מתחילים';
+  }
+
+  contBtn.onclick = () => {
+    if(!continueGame()) newGame();
+  };
+
+  newBtn.onclick = () => {
+    clearSave();
+    newGame();
+  };
+}
+
+initStartScreen();
+
+/* ---------- restart buttons on win/lose screens ---------- */
+$('winRestart').addEventListener('click', () => {
+  // return to start; initStartScreen will refresh on next visit
+  showScreen('start');
+  initStartScreen();
+});
+$('loseRestart').addEventListener('click', () => {
+  showScreen('start');
+  initStartScreen();
+});
+
+/* ---------- info modal ---------- */
 $('infoModalClose').addEventListener('click', closeInfoModal);
 $('infoModal').addEventListener('click', (e) => {
   if(e.target.id === 'infoModal') closeInfoModal();
 });
 
+/* ---------- how to play ---------- */
 $('howToClose').addEventListener('click', () => {
   $('howToModal').classList.remove('show');
 });
 
+/* ---------- month summary continue ---------- */
 $('monthSummaryContinue').addEventListener('click', () => {
   const btn = $('monthSummaryContinue');
-  // explicit guard, in addition to the disabled attribute itself, so a
-  // double-advance can't happen even if a click somehow fires after the
-  // button was already disabled (belt-and-suspenders on top of the
-  // browser's native "disabled buttons don't dispatch clicks" behavior)
   if(btn.disabled) return;
   btn.disabled = true;
   closeMonthSummary();
   proceedAfterMonthSummary();
 });
 
+/* ---------- unified portfolio modal ---------- */
 $('portfolioActionBtn').addEventListener('click', openPortfolioModal);
-$('portfolioRealizeBtn').addEventListener('click', openPortfolioRealizeModal);
 $('portfolioModalClose').addEventListener('click', closePortfolioModal);
 $('portfolioModal').addEventListener('click', (e) => {
   if(e.target.id === 'portfolioModal') closePortfolioModal();
