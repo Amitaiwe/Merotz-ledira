@@ -1,23 +1,18 @@
 /* ============ game.js ============
    Game state and game-flow logic: building turns, the central money
    ledger, the daily-choice mechanic (lifestyle drift on fixed
-   expenses), investment opportunities, monthly cashflow/inflation,
-   and win/lose decisions.
+   expenses), investment opportunities, the stock-portfolio engine,
+   special investments, monthly cashflow/inflation, and win/lose
+   decisions. */
 
-   NOTE: a few lines here still touch the DOM directly (disabling
-   buttons to prevent double-clicks, writing the turn counter, reading
-   the nickname input) because in the original code these were single
-   inline statements inside otherwise pure game-flow functions. Moving
-   just those lines into ui.js would have meant passing extra
-   parameters through several functions purely to relocate one
-   statement each — a structural change beyond "just relocate the
-   code", so per the instruction to preserve behavior over strict
-   layering, they stay here using the imported `$` helper. This is
-   disclosed explicitly in the summary. */
-
-import { CONFIG, QUESTIONS, INVESTMENTS, WIN_QUOTES, LOSE_QUOTES, BANKRUPT_QUOTES, BURNOUT_QUOTES, PORTFOLIO_TRACKS, SPECIAL_INVESTMENTS } from './data.js';
-import { $, fmt, showScreen, updateStats, renderQuestion, renderOpportunity, showToast, showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
+import { CONFIG, QUESTIONS, INVESTMENTS, WIN_QUOTES, LOSE_QUOTES,
+         BANKRUPT_QUOTES, BURNOUT_QUOTES, PORTFOLIO_TRACKS,
+         SPECIAL_INVESTMENTS } from './data.js';
+import { $, fmt, showScreen, updateStats, renderQuestion,
+         renderOpportunity, renderSpecialInvestment, showToast,
+         showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
 import { recordGamePlayed, recordGameWon, saveNickname } from './firebase.js';
+import { saveGame, loadGame, clearSave } from './storage.js';
 
 export let state = {};
 
@@ -34,16 +29,7 @@ export function shuffle(arr){
   return a;
 }
 
-/* ============ CENTRAL MONEY LEDGER ============
-   Every change to the checking account or to fixed expenses goes
-   through one of these two functions, tagged with its source
-   (currently just a string, for future traceability). This is what
-   keeps the different systems that touch money — monthly cashflow,
-   investment opportunities, and daily-choice lifestyle drift — from
-   silently overlapping or getting mixed into monthSummary in a way
-   that can't be traced back to its cause. Nothing else in the
-   codebase should mutate state.checkingAccount / state.fixedExpenses
-   directly. */
+/* ============ CENTRAL MONEY LEDGER ============ */
 export function applyCheckingChange(amount, source){
   state.checkingAccount = Math.max(0, state.checkingAccount + amount);
 }
@@ -53,10 +39,6 @@ export function applyExpenseChange(percent, source){
   state.fixedExpenses = Math.max(CONFIG.minFixedExpenses, next);
 }
 
-// state.investmentPortfolio is the existing field that already feeds
-// win/bankruptcy checks and monthSummary — the new stock-portfolio
-// engine below writes to it through this function so all of that
-// keeps working completely unmodified.
 export function applyPortfolioChange(amount, source){
   state.investmentPortfolio = Math.max(0, state.investmentPortfolio + amount);
 }
@@ -73,7 +55,12 @@ export function buildSlots(){
   let slots = [];
   let qi = 0, ii = 0;
   for(let turn=1; turn<=gameLength; turn++){
-    if(turn % CONFIG.opportunityEvery === 0){
+    const isSpecialTurn = turn % CONFIG.specialInvestmentEveryMonths === 0;
+    if(isSpecialTurn){
+      // type is decided at render time — depends on whether the player
+      // has at least specialInvestmentMinAmount at that moment
+      slots.push({ type:'special', data: null });
+    } else if(turn % CONFIG.opportunityEvery === 0){
       slots.push({ type:'opportunity', data: investmentPool[ii % investmentPool.length] });
       ii++;
     } else {
@@ -100,14 +87,19 @@ export function newGame(){
       riskTrack: null,
       totalDeposited: 0,
       openedAtTurn: null,
-      lastReturnPct: null
+      lastReturnPct: null,
+      depositedThisTurn: false
     },
     portfolioClosedAtTurn: null,
     lastPortfolioRealization: null,
+    lastSpecialInvestment: null,
     specialInvestment: {
       active: false,
       type: null,
-      offeredAtTurn: null
+      offeredAtTurn: null,
+      rolledChance: null,
+      rolledPayout: null,
+      rolledLoss: null
     },
     slots: built.slots,
     index: 0,
@@ -119,14 +111,30 @@ export function newGame(){
   updateStats(false);
   renderSlot();
   showScreen('game');
+  saveGame(state);
 }
 
-/* ============ STOCK PORTFOLIO ENGINE (V1.8, phase A) ============
-   A player can hold at most one portfolio at a time (state.stockPortfolio).
-   Its current value lives in state.investmentPortfolio (see note above
-   applyPortfolioChange) so every existing system that already reads
-   that field — win/bankruptcy checks, monthSummary, the topbar display —
-   keeps working with zero changes. */
+/* ---------- continueGame: restore from localStorage ---------- */
+export function continueGame(){
+  const saved = loadGame();
+  if(!saved) return false;
+  // mutate the live `state` object (do NOT reassign — other modules
+  // imported it by reference and would keep pointing at the old object)
+  Object.keys(state).forEach(k => delete state[k]);
+  Object.assign(state, saved);
+  // defensive defaults for fields that may be missing in older saves
+  if(!state.stockPortfolio) state.stockPortfolio = { active:false, riskTrack:null, totalDeposited:0, openedAtTurn:null, lastReturnPct:null, depositedThisTurn:false };
+  if(state.stockPortfolio.depositedThisTurn === undefined) state.stockPortfolio.depositedThisTurn = false;
+  if(!state.specialInvestment) state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
+  if(state.lastSpecialInvestment === undefined) state.lastSpecialInvestment = null;
+
+  updateStats(false);
+  renderSlot();
+  showScreen('game');
+  return true;
+}
+
+/* ============ STOCK PORTFOLIO ENGINE ============ */
 
 function pickWeightedReturn(returns){
   const totalWeight = returns.reduce((sum, r) => sum + r.weight, 0);
@@ -135,17 +143,17 @@ function pickWeightedReturn(returns){
     if(roll < r.weight) return r.pct;
     roll -= r.weight;
   }
-  return returns[returns.length - 1].pct; // fallback safety, should not normally hit
+  return returns[returns.length - 1].pct;
 }
 
 export function canOpenNewPortfolio(){
-  if(state.stockPortfolio.active) return false; // one active at a time — use depositToPortfolio instead
+  if(state.stockPortfolio.active) return false;
   if(state.portfolioClosedAtTurn === null) return true;
   return (state.index + 1) > state.portfolioClosedAtTurn;
 }
 
 export function openPortfolio(track, percent){
-  if(!canOpenNewPortfolio()) return; // blocked at the logic level, not just hidden in the UI
+  if(!canOpenNewPortfolio()) return;
   if(track !== 'conservative' && track !== 'risky') return;
 
   const amount = state.checkingAccount * percent;
@@ -157,51 +165,51 @@ export function openPortfolio(track, percent){
     riskTrack: track,
     totalDeposited: amount,
     openedAtTurn: state.index + 1,
-    lastReturnPct: null
+    lastReturnPct: null,
+    depositedThisTurn: true
   };
+  saveGame(state);
 }
 
 export function depositToPortfolio(percent){
-  if(!state.stockPortfolio.active) return; // nothing to deposit into yet
+  if(!state.stockPortfolio.active) return;
+  if(state.stockPortfolio.depositedThisTurn) return; // once per month
 
   const amount = state.checkingAccount * percent;
   applyCheckingChange(-amount, 'portfolio-deposit');
   applyPortfolioChange(amount, 'portfolio-deposit');
   state.stockPortfolio.totalDeposited += amount;
+  state.stockPortfolio.depositedThisTurn = true;
+  saveGame(state);
 }
 
 export function canRealizePortfolio(){
   if(!state.stockPortfolio.active) return false;
+  if(state.stockPortfolio.depositedThisTurn) return false; // no realize in the same month as a deposit
   return (state.index + 1) % CONFIG.portfolioRealizeEveryMonths === 0;
 }
 
 export function realizePortfolio(){
-  if(!canRealizePortfolio()) return; // blocked at the logic level, not just hidden in the UI
+  if(!canRealizePortfolio()) return;
 
   const grossValue = state.investmentPortfolio;
   const profit = grossValue - state.stockPortfolio.totalDeposited;
   const tax = profit > 0 ? profit * CONFIG.portfolioTaxRate : 0;
   const netReturned = grossValue - tax;
 
-  applyPortfolioChange(-grossValue, 'portfolio-realize'); // empty the portfolio
+  applyPortfolioChange(-grossValue, 'portfolio-realize');
   applyCheckingChange(netReturned, 'portfolio-realize');
 
   state.lastPortfolioRealization = {
     turn: state.index + 1,
-    grossValue,
-    profit,
-    tax,
-    netReturned
+    grossValue, profit, tax, netReturned
   };
-
   state.portfolioClosedAtTurn = state.index + 1;
   state.stockPortfolio = {
-    active: false,
-    riskTrack: null,
-    totalDeposited: 0,
-    openedAtTurn: null,
-    lastReturnPct: null
+    active: false, riskTrack: null, totalDeposited: 0,
+    openedAtTurn: null, lastReturnPct: null, depositedThisTurn: false
   };
+  saveGame(state);
 }
 
 function applyPortfolioMonthlyReturn(){
@@ -212,58 +220,107 @@ function applyPortfolioMonthlyReturn(){
   state.stockPortfolio.lastReturnPct = returnPct;
 }
 
-/* ============ SPECIAL INVESTMENT OPPORTUNITY (Stage B2.1 — foundation only) ============
-   Generates (or clears) the current special-investment offer on the
-   same monthly cadence as portfolio realization. This stage only
-   produces and stores the offer — buying it, funding it from the
-   portfolio, showing it to the player, and resolving its outcome are
-   all separate, later stages. */
-
+/* ============ SPECIAL INVESTMENT ============ */
 export function isSpecialInvestmentMonth(){
   return (state.index + 1) % CONFIG.specialInvestmentEveryMonths === 0;
 }
 
 function pickWeightedSpecialInvestment(){
-  const totalWeight = SPECIAL_INVESTMENTS.reduce((sum, inv) => sum + inv.appearanceWeight, 0);
+  const totalWeight = SPECIAL_INVESTMENTS.reduce((s,inv) => s + inv.appearanceWeight, 0);
   let roll = Math.random() * totalWeight;
   for(const inv of SPECIAL_INVESTMENTS){
     if(roll < inv.appearanceWeight) return inv;
     roll -= inv.appearanceWeight;
   }
-  return SPECIAL_INVESTMENTS[SPECIAL_INVESTMENTS.length - 1]; // fallback safety
+  return SPECIAL_INVESTMENTS[SPECIAL_INVESTMENTS.length - 1];
 }
 
 function maybeGenerateSpecialInvestment(){
   if(!isSpecialInvestmentMonth()){
-    state.specialInvestment = { active: false, type: null, offeredAtTurn: null };
+    state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
+    return;
+  }
+  if(state.checkingAccount < CONFIG.specialInvestmentMinAmount){
+    // no offer — renderSlot will fall back to a plain question
+    state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
     return;
   }
   const inv = pickWeightedSpecialInvestment();
+  const rolledChance = rand(inv.chanceRange[0], inv.chanceRange[1]);
+  const rolledPayout = rand(inv.payoutRange[0], inv.payoutRange[1]);
+  const rolledLoss   = rand(inv.lossRange[0],   inv.lossRange[1]);
   state.specialInvestment = {
     active: true,
     type: inv.key,
-    offeredAtTurn: state.index + 1
+    offeredAtTurn: state.index + 1,
+    rolledChance, rolledPayout, rolledLoss
   };
 }
 
+export function investSpecial(percent){
+  if(!state.specialInvestment.active) return null;
+  const inv = SPECIAL_INVESTMENTS.find(i => i.key === state.specialInvestment.type);
+  if(!inv) return null;
+
+  const amount = state.checkingAccount * percent;
+  if(amount <= 0) return null;
+
+  applyCheckingChange(-amount, 'special-investment');
+  const success = Math.random() * 100 < state.specialInvestment.rolledChance;
+  const multiplier = success ? state.specialInvestment.rolledPayout : state.specialInvestment.rolledLoss;
+  const returned = amount * multiplier;
+  applyCheckingChange(returned, 'special-investment');
+
+  const result = {
+    type: inv.key,
+    name: inv.name,
+    amount,
+    success,
+    multiplier,
+    returned,
+    profit: returned - amount,
+    chancePct: state.specialInvestment.rolledChance
+  };
+  state.lastSpecialInvestment = result;
+  state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
+  updateStats(true);
+  saveGame(state);
+  return result;
+}
+
+export function skipSpecialInvestment(){
+  state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
+}
+
+export function getSpecialInvestmentType(){
+  if(!state.specialInvestment.active) return null;
+  return SPECIAL_INVESTMENTS.find(i => i.key === state.specialInvestment.type) || null;
+}
+
+/* ============ RENDER SLOT ============ */
 export function renderSlot(){
   const slot = state.slots[state.index];
   $('qCounter').textContent = 'תור ' + (state.index+1);
   if(slot.type === 'question'){
     renderQuestion(slot.data);
-  } else {
+  } else if(slot.type === 'opportunity'){
     renderOpportunity(slot.data);
+  } else if(slot.type === 'special'){
+    if(state.specialInvestment.active){
+      const inv = getSpecialInvestmentType();
+      if(inv) renderSpecialInvestment(inv);
+      else renderQuestion(QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)]);
+    } else {
+      // no offer (insufficient funds) — fall back to a plain question
+      renderQuestion(QUESTIONS[Math.floor(Math.random()*QUESTIONS.length)]);
+    }
   }
 }
 
-/* ---------- daily choice: shifts fixed expenses + burnout, never checking ---------- */
+/* ---------- daily choice ---------- */
 export function chooseOption(tier, btnEl){
   document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
 
-  // captured BEFORE applyExpenseChange runs, so monthSummary can show the
-  // true before/after for this turn's choice — capturing it later (inside
-  // applyInflationAndAdvance, after the change already happened) was
-  // exactly the bug that made the expenses delta always show 0.
   const fixedExpensesBeforeChoice = state.fixedExpenses;
 
   const impact = CONFIG.expenseImpact[tier];
@@ -274,8 +331,6 @@ export function chooseOption(tier, btnEl){
   updateStats(true);
 
   if(state.burnout >= CONFIG.burnoutLoseThreshold){
-    // immediate game over — no monthly cashflow, no summary modal, no
-    // further inflation for this turn
     setTimeout(() => finishGame(false, 'burnout'), 400);
     return;
   }
@@ -283,6 +338,7 @@ export function chooseOption(tier, btnEl){
   applyInflationAndAdvance(fixedExpensesBeforeChoice);
 }
 
+/* ---------- regular investment ---------- */
 export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, skipBtn){
   investBtn.disabled = true;
   skipBtn.disabled = true;
@@ -335,14 +391,9 @@ export function resolveInvestment(inv, chancePct, cost, totalReturn, investBtn, 
   }, waitTime + 1200);
 }
 
-/* ---------- shared flow: monthly cashflow + apartment-price inflation ---------- */
+/* ---------- shared flow: monthly cashflow + inflation ---------- */
 export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
   const salaryBefore = state.salary;
-  // On a question turn, chooseOption already applied this turn's expense
-  // change before calling us, so state.fixedExpenses no longer reflects
-  // "before" — the caller passes the true pre-choice value instead. On an
-  // investment-opportunity turn (or skip), nothing has touched expenses
-  // this turn, so reading state.fixedExpenses directly is still correct.
   const fixedExpensesBefore = (fixedExpensesBeforeOverride !== undefined)
     ? fixedExpensesBeforeOverride
     : state.fixedExpenses;
@@ -356,7 +407,11 @@ export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
 
   state.apartmentPrice *= (1 + rand(CONFIG.inflation.min, CONFIG.inflation.max));
 
+  // portfolio monthly return — only if there is an active portfolio
+  const hadActivePortfolio = state.stockPortfolio.active;
   applyPortfolioMonthlyReturn();
+
+  // special-investment offer generation — only on the 6/12/18... months
   maybeGenerateSpecialInvestment();
 
   state.monthSummary = {
@@ -364,7 +419,11 @@ export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
     fixedExpensesBefore, fixedExpensesAfter: state.fixedExpenses,
     checkingBefore, checkingAfter: state.checkingAccount,
     investmentPortfolioBefore, investmentPortfolioAfter: state.investmentPortfolio,
-    apartmentPriceBefore, apartmentPriceAfter: state.apartmentPrice
+    apartmentPriceBefore, apartmentPriceAfter: state.apartmentPrice,
+    portfolioReturnPct: hadActivePortfolio ? state.stockPortfolio.lastReturnPct : null,
+    netProfit:
+      (state.checkingAccount - checkingBefore) +
+      (state.investmentPortfolio - investmentPortfolioBefore)
   };
 
   setTimeout(() => {
@@ -389,11 +448,18 @@ export function proceedAfterMonthSummary(){
     finishGame(false, 'timeout');
     return;
   }
+  // reset the per-month deposit flag for the new turn
+  if(state.stockPortfolio){
+    state.stockPortfolio.depositedThisTurn = false;
+  }
+  saveGame(state);
   renderSlot();
 }
 
 export function finishGame(won, reason){
   const turnsTaken = state.index + 1;
+
+  clearSave(); // no "continue" after a finished game
 
   if(won){
     recordGameWon(turnsTaken, state.nickname);
