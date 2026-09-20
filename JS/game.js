@@ -91,6 +91,9 @@ export function newGame(){
   };
   recordGamePlayed();
   if(nicknameRaw) saveNickname(nicknameRaw);
+  // generate a special-investment offer if the first turn somehow is one
+  // (defensive: turn 1 is never a special month, but the call is harmless)
+  maybeGenerateSpecialInvestment();
   updateStats(false);
   renderSlot();
   showScreen('game');
@@ -300,7 +303,13 @@ export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
 
   const hadActivePortfolio = state.stockPortfolio.active;
   applyPortfolioMonthlyReturn();
-  maybeGenerateSpecialInvestment();
+
+  // NOTE: maybeGenerateSpecialInvestment() is NOT called here — it now
+  // runs at the START of the new turn, in proceedAfterMonthSummary,
+  // after state.index has already been incremented. Calling it here
+  // used to run while state.index still pointed at the OLD turn, so
+  // for a special month (e.g. 6) it was checking (5+1)%6==0 → false,
+  // and the offer was never created.
 
   const specialSnapshot = state.lastSpecialInvestment;
 
@@ -344,6 +353,9 @@ export function proceedAfterMonthSummary(){
   if(state.stockPortfolio){
     state.stockPortfolio.depositedThisTurn = false;
   }
+  // generate a special-investment offer for the NEW turn, now that
+  // state.index points at it. On turn 6: (5+1)%6==0 → offer created.
+  maybeGenerateSpecialInvestment();
   saveGame(state);
   renderSlot();
 }
