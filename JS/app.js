@@ -24,11 +24,9 @@ function initStartScreen(){
 
 initStartScreen();
 
-/* restart buttons on win/lose screens */
 $('winRestart').addEventListener('click', () => { showScreen('start'); initStartScreen(); });
 $('loseRestart').addEventListener('click', () => { showScreen('start'); initStartScreen(); });
 
-/* stats buttons */
 $('winStatsBtn').addEventListener('click', openStatsModal);
 $('loseStatsBtn').addEventListener('click', openStatsModal);
 $('statsModalClose').addEventListener('click', closeStatsModal);
@@ -36,18 +34,18 @@ $('statsModal').addEventListener('click', (e) => {
   if(e.target.id === 'statsModal') closeStatsModal();
 });
 
-/* info modal */
+$('howToOpenBtn').addEventListener('click', () => {
+  $('howToModal').classList.add('show');
+});
+$('howToClose').addEventListener('click', () => {
+  $('howToModal').classList.remove('show');
+});
+
 $('infoModalClose').addEventListener('click', closeInfoModal);
 $('infoModal').addEventListener('click', (e) => {
   if(e.target.id === 'infoModal') closeInfoModal();
 });
 
-/* how to play */
-$('howToClose').addEventListener('click', () => {
-  $('howToModal').classList.remove('show');
-});
-
-/* month summary continue */
 $('monthSummaryContinue').addEventListener('click', () => {
   const btn = $('monthSummaryContinue');
   if(btn.disabled) return;
@@ -56,7 +54,6 @@ $('monthSummaryContinue').addEventListener('click', () => {
   proceedAfterMonthSummary();
 });
 
-/* portfolio modal */
 $('portfolioActionBtn').addEventListener('click', openPortfolioModal);
 $('portfolioModalClose').addEventListener('click', closePortfolioModal);
 $('portfolioModal').addEventListener('click', (e) => {
