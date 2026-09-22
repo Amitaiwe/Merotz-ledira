@@ -29,7 +29,7 @@ function freshStats(){
   return {
     totalSalaryEarned: 0,
     totalExpensesPaid: 0,
-    specialInvestments: [],      // [{turn, name, profit}]
+    specialInvestments: [],
     totalSpecialProfit: 0,
     totalSpecialSuccess: 0,
     totalSpecialFail: 0,
@@ -41,7 +41,6 @@ function freshStats(){
   };
 }
 
-/* ============ CENTRAL MONEY LEDGER ============ */
 export function applyCheckingChange(amount, source){
   state.checkingAccount = Math.max(0, state.checkingAccount + amount);
 }
@@ -257,7 +256,6 @@ export function investSpecial(percent){
   };
   state.lastSpecialInvestment = result;
   state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
-  // stats
   state.stats.specialInvestments.push({
     turn: result.turn,
     name: inv.name,
@@ -300,7 +298,6 @@ export function renderSlot(){
   }
 }
 
-/* ---------- daily choice ---------- */
 export function chooseOption(tier, btnEl){
   document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
   const fixedExpensesBeforeChoice = state.fixedExpenses;
@@ -326,12 +323,16 @@ export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
   const investmentPortfolioBefore = state.investmentPortfolio;
   const apartmentPriceBefore = state.apartmentPrice;
 
+  // auto-inflation on fixed expenses — separate from the choice's effect,
+  // applied every month regardless of what the player picked
+  state.fixedExpenses *= (1 + rand(CONFIG.autoExpenseInflation.min, CONFIG.autoExpenseInflation.max));
+  state.fixedExpenses = Math.max(CONFIG.minFixedExpenses, state.fixedExpenses);
+
   state.salary *= (1 + rand(CONFIG.salaryGrowth.min, CONFIG.salaryGrowth.max));
   const monthlyCashFlow = state.salary - state.fixedExpenses;
   applyCheckingChange(monthlyCashFlow, 'monthly-cashflow');
   state.apartmentPrice *= (1 + rand(CONFIG.inflation.min, CONFIG.inflation.max));
 
-  // stats: accumulate salary earned and expenses paid this turn
   state.stats.totalSalaryEarned += state.salary;
   state.stats.totalExpensesPaid += state.fixedExpenses;
 
