@@ -1,7 +1,4 @@
-/* ============ data.js ============
-   Static game data. Questions, quotes unchanged from the original.
-   INVESTMENTS and OUTCOME_TEMPLATES were removed — the unified model
-   uses only SPECIAL_INVESTMENTS, offered every 6 months. */
+/* ============ data.js ============ */
 
 export const CONFIG = {
     startChecking: 300000,
@@ -9,7 +6,7 @@ export const CONFIG = {
     startSalary: 18000,
     startFixedExpenses: 9000,
     minFixedExpenses: 1000,
-    salaryGrowth: { min: 0.01, max: 0.025 },
+    salaryGrowth: { min: 0.004, max: 0.007 },
     maxTurns: 100,
     bankruptcyThreshold: 0.10,
     burnoutLoseThreshold: 90,
@@ -19,14 +16,15 @@ export const CONFIG = {
     specialInvestmentEveryMonths: 6,
     specialInvestmentMinAmount: 50000,
     specialInvestmentPercentOptions: [0.5, 0.6, 0.7, 0.8],
-    inflation: { min: 0.004, max: 0.007 },
+    inflation: { min: 0.006, max: 0.010 },
+    autoExpenseInflation: { min: 0.003, max: 0.005 },
     expenseImpact: [
       { min: -0.0060, max: -0.0044 },
       { min: -0.0042, max: -0.0020 },
       { min:  0.0020, max:  0.0042 },
       { min:  0.0044, max:  0.0060 }
     ],
-        investCostShareOfCapitalCap: 0.6,
+    investCostShareOfCapitalCap: 0.6,
     startYear: 2027,
     startMonth: 0
 };
@@ -198,12 +196,6 @@ export const PORTFOLIO_TRACKS = {
     }
 };
 
-/* ============ SPECIAL_INVESTMENTS ============
-   The only investment type now. Offered every 6 months. Each type has:
-     - chanceRange: [min,max] success probability (rolled once at offer,
-       player sees only the rolled number)
-     - payoutRange: [min,max] multiplier on success
-     - lossRange:   [min,max] multiplier on failure (0 = total loss) */
 export const SPECIAL_INVESTMENTS = [
   { key:"reit", name:"קרן נדל\"ן (REIT)", risk:"סיכון נמוך",
     desc:"השקעה בתעודה שמחזיקה בכמה נכסי נדל\"ן יחד, בלי לקנות נכס שלם בעצמך.",
