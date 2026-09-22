@@ -126,6 +126,7 @@
   <div class="screen end-screen" id="win">
     <div class="end-emoji">🎉</div>
     <h2>הצלחת! הדירה שלך</h2>
+    <div class="end-date" id="winDate"></div>
     <div class="end-stats">
       <div class="end-stat">
         <div class="lbl">ההון הסופי שלך</div>
@@ -137,6 +138,7 @@
       </div>
     </div>
     <div class="end-quote" id="winQuote">הבחירות הקטנות שלך הצטברו למשהו גדול.</div>
+    <button class="btn-secondary" id="winStatsBtn">📊 סיכום מפורט</button>
     <button class="btn-secondary" id="winRestart">שחק שוב</button>
   </div>
 
@@ -144,6 +146,7 @@
   <div class="screen end-screen" id="lose">
     <div class="end-emoji">😬</div>
     <h2 id="loseTitle">הדירה ברחה לך</h2>
+    <div class="end-date" id="loseDate"></div>
     <div class="end-stats">
       <div class="end-stat">
         <div class="lbl">ההון הסופי שלך</div>
@@ -155,6 +158,7 @@
       </div>
     </div>
     <div class="end-quote" id="loseQuote">הוצאות קטנות מצטברות. אולי בפעם הבאה תבחר קצת אחרת...</div>
+    <button class="btn-secondary" id="loseStatsBtn">📊 סיכום מפורט</button>
     <button class="btn-secondary" id="loseRestart">נסה שוב</button>
   </div>
 
@@ -176,12 +180,21 @@
     </div>
   </div>
 
-  <!-- PORTFOLIO MODAL (unified) -->
+  <!-- PORTFOLIO MODAL -->
   <div class="modal-overlay" id="portfolioModal">
     <div class="modal-box">
       <button class="modal-close" id="portfolioModalClose">✕</button>
       <div class="modal-title" id="portfolioModalTitle">תיק ההשקעות שלי</div>
       <div class="modal-text" id="portfolioModalText"></div>
+    </div>
+  </div>
+
+  <!-- STATS MODAL -->
+  <div class="modal-overlay" id="statsModal">
+    <div class="modal-box">
+      <button class="modal-close" id="statsModalClose">✕</button>
+      <div class="modal-title">📊 סיכום המשחק</div>
+      <div class="modal-text" id="statsModalContent"></div>
     </div>
   </div>
 
