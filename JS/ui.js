@@ -102,7 +102,6 @@ export function updateStats(animate){
   }
 }
 
-/* ---------- question ---------- */
 export function renderQuestion(q){
   $('mainCard').classList.remove('flash-win','flash-lose');
   $('cardContent').innerHTML =
@@ -120,10 +119,12 @@ export function renderQuestion(q){
   });
 }
 
-/* ---------- special investment ---------- */
 export function renderSpecialInvestment(inv){
   const chancePct = Math.round(state.specialInvestment.rolledChance * 10) / 10;
+  const payoutMult = state.specialInvestment.rolledPayout;
+  const lossMult = state.specialInvestment.rolledLoss;
   const checking = state.checkingAccount;
+
   const eligible = CONFIG.specialInvestmentPercentOptions
     .filter(p => checking * p >= CONFIG.specialInvestmentMinAmount);
 
@@ -132,14 +133,6 @@ export function renderSpecialInvestment(inv){
     renderQuestion(q);
     return;
   }
-
-  const smallestAmount = checking * eligible[0];
-  const payoutMult = state.specialInvestment.rolledPayout;
-  const lossMult = state.specialInvestment.rolledLoss;
-  const winProfit = smallestAmount * payoutMult - smallestAmount;
-  const lossProfit = smallestAmount * lossMult - smallestAmount;
-  const winText = (winProfit >= 0 ? '+' : '-') + fmt(Math.abs(winProfit));
-  const lossText = (lossProfit >= 0 ? '+' : '-') + fmt(Math.abs(lossProfit));
 
   $('mainCard').classList.remove('flash-win','flash-lose');
   $('cardContent').innerHTML =
@@ -153,25 +146,35 @@ export function renderSpecialInvestment(inv){
         '<div class="pct-lbl">סיכוי הצלחה</div></div>' +
       '</div>' +
     '</div>' +
-    '<div class="special-figures">' +
-      '<div class="sf-row win"><span class="sf-lbl">בהצלחה</span><span class="sf-amt">' + winText + '</span></div>' +
-      '<div class="sf-row lose"><span class="sf-lbl">בכישלון</span><span class="sf-amt">' + lossText + '</span></div>' +
-      '<div class="sf-note">על השקעה של ' + fmt(smallestAmount) + '</div>' +
-    '</div>' +
+    '<div class="opp-multipliers">פי ' + payoutMult.toFixed(2) + ' על הכסף בהצלחה · פי ' + lossMult.toFixed(2) + ' בכישלון</div>' +
+    '<div class="opp-realize-note">(ניתן לממש את תיק ההשקעות לצורך השקעה זו)</div>' +
     '<div class="opp-result" id="oppResult"></div>';
 
   $('oppInfoBtn').addEventListener('click', () => openInfoModal(inv.name, inv.desc));
 
   const optWrap = $('options');
   optWrap.innerHTML = '';
+
   eligible.forEach(p => {
     const amount = checking * p;
+    const winProfit = amount * payoutMult - amount;
+    const lossProfit = amount * lossMult - amount;
+    const winText = (winProfit >= 0 ? '+' : '-') + fmt(Math.abs(winProfit));
+    const lossText = (lossProfit >= 0 ? '+' : '-') + fmt(Math.abs(lossProfit));
+
     const btn = document.createElement('button');
     btn.className = 'option-btn special-invest-btn';
-    btn.textContent = Math.round(p*100) + '% — ' + fmt(amount);
+    btn.innerHTML =
+      '<div class="sib-top">' + Math.round(p*100) + '% מהעו"ש — ' + fmt(amount) + '</div>' +
+      '<div class="sib-bottom">' +
+        '<span class="sib-win">✅ בהצלחה ' + winText + '</span>' +
+        '<span class="sib-sep">·</span>' +
+        '<span class="sib-lose">❌ בהפסד ' + lossText + '</span>' +
+      '</div>';
     btn.addEventListener('click', () => resolveSpecialInvestment(p));
     optWrap.appendChild(btn);
   });
+
   const skipBtn = document.createElement('button');
   skipBtn.className = 'btn-skip';
   skipBtn.textContent = 'לא תודה, מדלג';
@@ -217,7 +220,6 @@ export function showToast(msg){
   setTimeout(() => t.classList.remove('show'), 900);
 }
 
-/* ---------- info modal ---------- */
 export function openInfoModal(title, text){
   $('infoModalTitle').textContent = title;
   $('infoModalText').textContent = text;
@@ -227,7 +229,6 @@ export function closeInfoModal(){
   $('infoModal').classList.remove('show');
 }
 
-/* ---------- portfolio modal ---------- */
 let portfolioModalPendingTrack = null;
 
 export function openPortfolioModal(){
@@ -375,7 +376,6 @@ function renderPortfolioRealizeStep(){
   });
 }
 
-/* ---------- win / lose ---------- */
 export function renderWinScreen(quote){
   const finalWealth = state.checkingAccount + state.investmentPortfolio;
   const date = turnToDate(state.index + 1);
@@ -397,14 +397,9 @@ export function renderLoseScreen(quote, reason){
   showScreen('lose');
 }
 
-/* ---------- month summary ---------- */
 function signFmt(n){
   const sign = n >= 0 ? '+' : '-';
   return sign + fmt(Math.abs(n));
-}
-
-function fmtPct(n){
-  return Math.round(n) + '%';
 }
 
 export function showMonthSummary(ms){
@@ -482,7 +477,6 @@ export function closeMonthSummary(){
   $('monthSummaryModal').classList.remove('show');
 }
 
-/* ---------- game stats modal ---------- */
 export function openStatsModal(){
   renderStatsModal();
   $('statsModal').classList.add('show');
@@ -509,13 +503,11 @@ function renderStatsModal(){
 
   let html = '';
 
-  // hero
   html += '<div class="ms-hero ' + netSent + '">' +
     '<div class="ms-hero-main">נטו: ' + (net >= 0 ? '+' : '') + fmt(net) + '</div>' +
     '<div class="ms-hero-sub">התחלת עם ' + fmt(CONFIG.startChecking) + ' · סיימת עם ' + fmt(finalWealth) + '</div>' +
   '</div>';
 
-  // meta row
   const burnoutText = Math.round(state.burnout || 0) + '%';
   html += '<div class="stats-meta">' +
     '🎮 ' + formatDuration(turns) + ' · ' + turns + ' תורות<br>' +
@@ -524,7 +516,6 @@ function renderStatsModal(){
     '🏠 הגעת ל-' + Math.round(finalPct) + '% ממחיר הדירה' +
   '</div>';
 
-  // 1) salary section
   const netSalarySent = netSalary >= 0 ? 'positive' : 'negative';
   html += '<div class="stats-section">' +
     '<div class="stats-section-title">💰 חסכון מהמשכורת</div>' +
@@ -533,7 +524,6 @@ function renderStatsModal(){
     '<div class="stats-row total"><span>נטו</span><span class="' + netSalarySent + '">' + (netSalary >= 0 ? '+' : '-') + fmt(Math.abs(netSalary)) + '</span></div>' +
   '</div>';
 
-  // 2) special investments section
   const siProfitSent = (s.totalSpecialProfit || 0) >= 0 ? 'positive' : 'negative';
   const siCount = (s.specialInvestments || []).length;
   html += '<div class="stats-section">' +
@@ -543,7 +533,6 @@ function renderStatsModal(){
     '<div class="stats-row total"><span>נטו</span><span class="' + siProfitSent + '">' + ((s.totalSpecialProfit || 0) >= 0 ? '+' : '-') + fmt(Math.abs(s.totalSpecialProfit || 0)) + '</span></div>' +
   '</div>';
 
-  // 3) portfolio section
   const portNetSent = portfolioNet >= 0 ? 'positive' : 'negative';
   const returnSign = returnPct >= 0 ? '+' : '-';
   const deposits = s.portfolioDeposits || 0;
@@ -561,7 +550,6 @@ function renderStatsModal(){
     '</div>';
   }
 
-  // 4) special investments detail list
   if((s.specialInvestments || []).length > 0){
     html += '<div class="stats-section">' +
       '<div class="stats-section-title">📋 פירוט השקעות</div>';
