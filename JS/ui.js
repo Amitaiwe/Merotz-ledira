@@ -1,5 +1,4 @@
-/* ============ ui.js ============
-   Everything that reads or writes the DOM. */
+/* ============ ui.js ============ */
 
 import { CONFIG, QUESTIONS, PORTFOLIO_TRACKS } from './data.js';
 import { state, shuffle, rand, chooseOption,
@@ -10,6 +9,35 @@ import { state, shuffle, rand, chooseOption,
 
 export const $ = id => document.getElementById(id);
 export const fmt = n => Math.round(n).toLocaleString('he-IL') + ' ₪';
+
+const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+export function turnToDate(turn){
+  const totalMonths = turn - 1;
+  const startMonthIdx = CONFIG.startMonth || 0;
+  const startYear = CONFIG.startYear || 2027;
+  const monthIdx = (startMonthIdx + totalMonths) % 12;
+  const year = startYear + Math.floor((startMonthIdx + totalMonths) / 12);
+  return { monthName: MONTHS_HE[monthIdx], year, monthIdx };
+}
+
+export function formatDuration(turns){
+  const totalMonths = Math.max(0, turns - 1);
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  if(years === 0){
+    if(months === 0) return 'חודש';
+    if(months === 1) return 'חודש';
+    return months + ' חודשים';
+  }
+  let yearText;
+  if(years === 1) yearText = 'שנה';
+  else if(years === 2) yearText = 'שנתיים';
+  else yearText = years + ' שנים';
+  if(months === 0) return yearText;
+  if(months === 1) return yearText + ' וחודש';
+  return yearText + ' ו-' + months + ' חודשים';
+}
 
 export function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -96,7 +124,6 @@ export function renderQuestion(q){
 export function renderSpecialInvestment(inv){
   const chancePct = Math.round(state.specialInvestment.rolledChance * 10) / 10;
   const checking = state.checkingAccount;
-
   const eligible = CONFIG.specialInvestmentPercentOptions
     .filter(p => checking * p >= CONFIG.specialInvestmentMinAmount);
 
@@ -106,14 +133,11 @@ export function renderSpecialInvestment(inv){
     return;
   }
 
-  // show example figures based on the smallest eligible investment amount
-  const smallestPct = eligible[0];
-  const smallestAmount = checking * smallestPct;
+  const smallestAmount = checking * eligible[0];
   const payoutMult = state.specialInvestment.rolledPayout;
   const lossMult = state.specialInvestment.rolledLoss;
   const winProfit = smallestAmount * payoutMult - smallestAmount;
-  const lossProfit = smallestAmount * lossMult - smallestAmount; // negative
-
+  const lossProfit = smallestAmount * lossMult - smallestAmount;
   const winText = (winProfit >= 0 ? '+' : '-') + fmt(Math.abs(winProfit));
   const lossText = (lossProfit >= 0 ? '+' : '-') + fmt(Math.abs(lossProfit));
 
@@ -130,14 +154,8 @@ export function renderSpecialInvestment(inv){
       '</div>' +
     '</div>' +
     '<div class="special-figures">' +
-      '<div class="sf-row win">' +
-        '<span class="sf-lbl">בהצלחה</span>' +
-        '<span class="sf-amt">' + winText + '</span>' +
-      '</div>' +
-      '<div class="sf-row lose">' +
-        '<span class="sf-lbl">בכישלון</span>' +
-        '<span class="sf-amt">' + lossText + '</span>' +
-      '</div>' +
+      '<div class="sf-row win"><span class="sf-lbl">בהצלחה</span><span class="sf-amt">' + winText + '</span></div>' +
+      '<div class="sf-row lose"><span class="sf-lbl">בכישלון</span><span class="sf-amt">' + lossText + '</span></div>' +
       '<div class="sf-note">על השקעה של ' + fmt(smallestAmount) + '</div>' +
     '</div>' +
     '<div class="opp-result" id="oppResult"></div>';
@@ -146,7 +164,6 @@ export function renderSpecialInvestment(inv){
 
   const optWrap = $('options');
   optWrap.innerHTML = '';
-
   eligible.forEach(p => {
     const amount = checking * p;
     const btn = document.createElement('button');
@@ -155,7 +172,6 @@ export function renderSpecialInvestment(inv){
     btn.addEventListener('click', () => resolveSpecialInvestment(p));
     optWrap.appendChild(btn);
   });
-
   const skipBtn = document.createElement('button');
   skipBtn.className = 'btn-skip';
   skipBtn.textContent = 'לא תודה, מדלג';
@@ -177,7 +193,6 @@ export function resolveSpecialInvestment(percent){
   resultEl.textContent = 'הגלגל מסתובב...';
 
   const result = investSpecial(percent);
-
   setTimeout(() => {
     gaugeEl.classList.remove('spinning');
     cardEl.classList.remove('flash-win','flash-lose');
@@ -192,7 +207,6 @@ export function resolveSpecialInvestment(percent){
       cardEl.classList.add('flash-lose');
     }
   }, 1600);
-
   setTimeout(() => { applyInflationAndAdvance(); }, 1600 + 1200);
 }
 
@@ -209,7 +223,6 @@ export function openInfoModal(title, text){
   $('infoModalText').textContent = text;
   $('infoModal').classList.add('show');
 }
-
 export function closeInfoModal(){
   $('infoModal').classList.remove('show');
 }
@@ -228,7 +241,6 @@ export function openPortfolioModal(){
   }
   $('portfolioModal').classList.add('show');
 }
-
 export function closePortfolioModal(){
   $('portfolioModal').classList.remove('show');
 }
@@ -273,11 +285,8 @@ function renderPortfolioPercentStep(isDeposit){
   $('portfolioModalText').querySelectorAll('.portfolio-pct-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const pct = parseFloat(btn.dataset.pct);
-      if(isDeposit){
-        depositToPortfolio(pct);
-      } else {
-        openPortfolio(portfolioModalPendingTrack, pct);
-      }
+      if(isDeposit) depositToPortfolio(pct);
+      else openPortfolio(portfolioModalPendingTrack, pct);
       updateStats(true);
       closePortfolioModal();
     });
@@ -298,13 +307,11 @@ function renderPortfolioManageStep(){
     returnText = sign + absPct + '%';
     returnClass = lastReturn > 0 ? 'positive' : (lastReturn < 0 ? 'negative' : '');
   }
-
   const depositedThisTurn = state.stockPortfolio.depositedThisTurn;
   const currentTurn = state.index + 1;
   const canRealizeNow = canRealizePortfolio();
   const mod = currentTurn % CONFIG.portfolioRealizeEveryMonths;
   const monthsToRealize = mod === 0 ? 0 : CONFIG.portfolioRealizeEveryMonths - mod;
-
   const specialInv = getSpecialInvestmentType();
   let specialLine = '';
   if(specialInv){
@@ -330,11 +337,8 @@ function renderPortfolioManageStep(){
   } else {
     let note;
     if(depositedThisTurn){
-      if(mod === 0){
-        note = 'הפקדת החודש — מימוש יתאפשר בחודש הבא.';
-      } else {
-        note = 'הפקדת החודש — מימוש יתאפשר בעוד ' + monthsToRealize + ' חודשים.';
-      }
+      if(mod === 0) note = 'הפקדת החודש — מימוש יתאפשר בחודש הבא.';
+      else note = 'הפקדת החודש — מימוש יתאפשר בעוד ' + monthsToRealize + ' חודשים.';
     } else {
       note = 'ניתן לממש בעוד ' + monthsToRealize + ' חודשים.';
     }
@@ -346,7 +350,6 @@ function renderPortfolioManageStep(){
 
   const depBtn = $('portfolioDepositBtn');
   if(depBtn) depBtn.addEventListener('click', () => renderPortfolioPercentStep(true));
-
   const realBtn = $('portfolioRealizeOpenBtn');
   if(realBtn) realBtn.addEventListener('click', () => renderPortfolioRealizeStep());
 }
@@ -357,7 +360,6 @@ function renderPortfolioRealizeStep(){
   const profit = grossValue - deposited;
   const tax = profit > 0 ? profit * CONFIG.portfolioTaxRate : 0;
   const netReturned = grossValue - tax;
-
   $('portfolioModalTitle').textContent = 'מימוש תיק ההשקעות';
   $('portfolioModalText').innerHTML =
     '<div class="portfolio-realize-row"><span>שווי התיק</span><span>' + fmt(grossValue) + '</span></div>' +
@@ -366,7 +368,6 @@ function renderPortfolioRealizeStep(){
     '<div class="portfolio-realize-row"><span>מס (10% מהרווח)</span><span>' + fmt(tax) + '</span></div>' +
     '<div class="portfolio-realize-row total"><span>יחזור לעו"ש</span><span>' + fmt(netReturned) + '</span></div>' +
     '<button class="btn-primary" id="portfolioRealizeConfirm" style="margin-top:14px;" type="button">מימוש</button>';
-
   $('portfolioRealizeConfirm').addEventListener('click', () => {
     realizePortfolio();
     updateStats(true);
@@ -376,21 +377,27 @@ function renderPortfolioRealizeStep(){
 
 /* ---------- win / lose ---------- */
 export function renderWinScreen(quote){
-  $('winCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
+  const finalWealth = state.checkingAccount + state.investmentPortfolio;
+  const date = turnToDate(state.index + 1);
+  $('winCapital').textContent = fmt(finalWealth);
   $('winPrice').textContent = fmt(state.apartmentPrice);
   $('winQuote').textContent = quote;
+  $('winDate').textContent = 'הגעת לדירה ב' + date.monthName + ' ' + date.year;
   showScreen('win');
 }
 
 export function renderLoseScreen(quote, reason){
-  $('loseCapital').textContent = fmt(state.checkingAccount + state.investmentPortfolio);
+  const finalWealth = state.checkingAccount + state.investmentPortfolio;
+  const date = turnToDate(state.index + 1);
+  $('loseCapital').textContent = fmt(finalWealth);
   $('losePrice').textContent = fmt(state.apartmentPrice);
   $('loseTitle').textContent = reason === 'burnout' ? 'נשברת מעומס' : 'הדירה ברחה לך';
   $('loseQuote').textContent = quote;
+  $('loseDate').textContent = 'המשחק הסתיים ב' + date.monthName + ' ' + date.year;
   showScreen('lose');
 }
 
-/* ---------- month summary (card-based) ---------- */
+/* ---------- month summary ---------- */
 function signFmt(n){
   const sign = n >= 0 ? '+' : '-';
   return sign + fmt(Math.abs(n));
@@ -406,8 +413,6 @@ export function showMonthSummary(ms){
   const pctDelta = percentAfter - percentBefore;
 
   let html = '';
-
-  /* 1) HERO — net profit + apartment progress */
   const net = ms.netProfit;
   const netSent = net > 0 ? 'positive' : (net < 0 ? 'negative' : 'neutral');
   const netText = net === 0
@@ -422,29 +427,22 @@ export function showMonthSummary(ms){
     '<div class="ms-hero-sub">' + Math.round(percentAfter) + '% ממחיר הדירה · ' + pctDeltaText + '</div>' +
   '</div>';
 
-  /* 2) market-return card (only if there was an active portfolio this month) */
   if(ms.portfolioReturnPct !== null && ms.portfolioReturnPct !== undefined){
     const pct = ms.portfolioReturnPct;
     const delta = ms.investmentPortfolioAfter - ms.investmentPortfolioBefore;
     const sentiment = pct > 0 ? 'positive' : (pct < 0 ? 'negative' : 'neutral');
     const pctStr = (pct >= 0 ? '+' : '−') + Math.abs(Math.round(pct*1000)/10) + '%';
     let line;
-    if(pct === 0){
-      line = 'הבורסה לא זזה החודש';
-    } else if(delta > 0){
-      line = 'הבורסה עשתה ' + pctStr + ' — הרווחת ' + fmt(delta);
-    } else if(delta < 0){
-      line = 'הבורסה עשתה ' + pctStr + ' — הפסדת ' + fmt(Math.abs(delta));
-    } else {
-      line = 'הבורסה עשתה ' + pctStr;
-    }
+    if(pct === 0) line = 'הבורסה לא זזה החודש';
+    else if(delta > 0) line = 'הבורסה עשתה ' + pctStr + ' — הרווחת ' + fmt(delta);
+    else if(delta < 0) line = 'הבורסה עשתה ' + pctStr + ' — הפסדת ' + fmt(Math.abs(delta));
+    else line = 'הבורסה עשתה ' + pctStr;
     html += '<div class="ms-card ms-market ' + sentiment + '">' +
       '<div class="ms-card-label">📈 תיק השקעות</div>' +
       '<div class="ms-card-body ' + sentiment + '">' + line + '</div>' +
     '</div>';
   }
 
-  /* 3) special-investment card (only on months it happened) */
   if(ms.specialInvestment){
     const si = ms.specialInvestment;
     const sent = si.success ? 'positive' : 'negative';
@@ -457,42 +455,22 @@ export function showMonthSummary(ms){
     '</div>';
   }
 
-  /* 4) two-up: salary + expenses */
   const salarySent = ms.salaryAfter > ms.salaryBefore ? 'positive'
     : (ms.salaryAfter < ms.salaryBefore ? 'negative' : 'neutral');
   const expensesSent = ms.fixedExpensesAfter < ms.fixedExpensesBefore ? 'positive'
     : (ms.fixedExpensesAfter > ms.fixedExpensesBefore ? 'negative' : 'neutral');
-
   html += '<div class="ms-two-up">' +
-    '<div class="ms-tile ' + salarySent + '">' +
-      '<div class="ms-tile-label">משכורת</div>' +
-      '<div class="ms-tile-value">' + fmt(ms.salaryAfter) + '</div>' +
-      '<div class="ms-tile-delta ' + salarySent + '">' + signFmt(ms.salaryAfter - ms.salaryBefore) + '</div>' +
-    '</div>' +
-    '<div class="ms-tile ' + expensesSent + '">' +
-      '<div class="ms-tile-label">הוצאות</div>' +
-      '<div class="ms-tile-value">' + fmt(ms.fixedExpensesAfter) + '</div>' +
-      '<div class="ms-tile-delta ' + expensesSent + '">' + signFmt(ms.fixedExpensesAfter - ms.fixedExpensesBefore) + '</div>' +
-    '</div>' +
+    '<div class="ms-tile ' + salarySent + '"><div class="ms-tile-label">משכורת</div><div class="ms-tile-value">' + fmt(ms.salaryAfter) + '</div><div class="ms-tile-delta ' + salarySent + '">' + signFmt(ms.salaryAfter - ms.salaryBefore) + '</div></div>' +
+    '<div class="ms-tile ' + expensesSent + '"><div class="ms-tile-label">הוצאות</div><div class="ms-tile-value">' + fmt(ms.fixedExpensesAfter) + '</div><div class="ms-tile-delta ' + expensesSent + '">' + signFmt(ms.fixedExpensesAfter - ms.fixedExpensesBefore) + '</div></div>' +
   '</div>';
 
-  /* 5) two-up: checking + portfolio */
   const checkingSent = ms.checkingAfter > ms.checkingBefore ? 'positive'
     : (ms.checkingAfter < ms.checkingBefore ? 'negative' : 'neutral');
   const portfolioSent = ms.investmentPortfolioAfter > ms.investmentPortfolioBefore ? 'positive'
     : (ms.investmentPortfolioAfter < ms.investmentPortfolioBefore ? 'negative' : 'neutral');
-
   html += '<div class="ms-two-up">' +
-    '<div class="ms-tile ' + checkingSent + '">' +
-      '<div class="ms-tile-label">עו"ש</div>' +
-      '<div class="ms-tile-value">' + fmt(ms.checkingAfter) + '</div>' +
-      '<div class="ms-tile-delta ' + checkingSent + '">' + signFmt(ms.checkingAfter - ms.checkingBefore) + '</div>' +
-    '</div>' +
-    '<div class="ms-tile ' + portfolioSent + '">' +
-      '<div class="ms-tile-label">תיק השקעות</div>' +
-      '<div class="ms-tile-value">' + fmt(ms.investmentPortfolioAfter) + '</div>' +
-      '<div class="ms-tile-delta ' + portfolioSent + '">' + signFmt(ms.investmentPortfolioAfter - ms.investmentPortfolioBefore) + '</div>' +
-    '</div>' +
+    '<div class="ms-tile ' + checkingSent + '"><div class="ms-tile-label">עו"ש</div><div class="ms-tile-value">' + fmt(ms.checkingAfter) + '</div><div class="ms-tile-delta ' + checkingSent + '">' + signFmt(ms.checkingAfter - ms.checkingBefore) + '</div></div>' +
+    '<div class="ms-tile ' + portfolioSent + '"><div class="ms-tile-label">תיק השקעות</div><div class="ms-tile-value">' + fmt(ms.investmentPortfolioAfter) + '</div><div class="ms-tile-delta ' + portfolioSent + '">' + signFmt(ms.investmentPortfolioAfter - ms.investmentPortfolioBefore) + '</div></div>' +
   '</div>';
 
   $('monthSummaryContent').innerHTML = html;
@@ -502,4 +480,103 @@ export function showMonthSummary(ms){
 
 export function closeMonthSummary(){
   $('monthSummaryModal').classList.remove('show');
-       }
+}
+
+/* ---------- game stats modal ---------- */
+export function openStatsModal(){
+  renderStatsModal();
+  $('statsModal').classList.add('show');
+}
+export function closeStatsModal(){
+  $('statsModal').classList.remove('show');
+}
+
+function renderStatsModal(){
+  const s = state.stats || {};
+  const turns = state.index + 1;
+  const date = turnToDate(turns);
+  const startDate = turnToDate(1);
+  const finalWealth = state.checkingAccount + state.investmentPortfolio;
+  const net = finalWealth - CONFIG.startChecking;
+  const netSent = net > 0 ? 'positive' : (net < 0 ? 'negative' : 'neutral');
+  const finalPct = (finalWealth / state.apartmentPrice) * 100;
+
+  const netSalary = (s.totalSalaryEarned || 0) - (s.totalExpensesPaid || 0);
+  const portfolioNet = (s.portfolioMarketReturns || 0) - (s.portfolioTax || 0);
+  const returnPct = (s.portfolioDeposits || 0) > 0
+    ? (portfolioNet / s.portfolioDeposits) * 100
+    : 0;
+
+  let html = '';
+
+  // hero
+  html += '<div class="ms-hero ' + netSent + '">' +
+    '<div class="ms-hero-main">נטו: ' + (net >= 0 ? '+' : '') + fmt(net) + '</div>' +
+    '<div class="ms-hero-sub">התחלת עם ' + fmt(CONFIG.startChecking) + ' · סיימת עם ' + fmt(finalWealth) + '</div>' +
+  '</div>';
+
+  // meta row
+  const burnoutText = Math.round(state.burnout || 0) + '%';
+  html += '<div class="stats-meta">' +
+    '🎮 ' + formatDuration(turns) + ' · ' + turns + ' תורות<br>' +
+    '📅 ' + startDate.monthName + ' ' + startDate.year + ' → ' + date.monthName + ' ' + date.year + '<br>' +
+    '⚡ שחיקה סופית: ' + burnoutText + '<br>' +
+    '🏠 הגעת ל-' + Math.round(finalPct) + '% ממחיר הדירה' +
+  '</div>';
+
+  // 1) salary section
+  const netSalarySent = netSalary >= 0 ? 'positive' : 'negative';
+  html += '<div class="stats-section">' +
+    '<div class="stats-section-title">💰 חסכון מהמשכורת</div>' +
+    '<div class="stats-row"><span>משכורות שהתקבלו</span><span class="positive">+' + fmt(s.totalSalaryEarned || 0) + '</span></div>' +
+    '<div class="stats-row"><span>הוצאות ששולמו</span><span class="negative">-' + fmt(s.totalExpensesPaid || 0) + '</span></div>' +
+    '<div class="stats-row total"><span>נטו</span><span class="' + netSalarySent + '">' + (netSalary >= 0 ? '+' : '-') + fmt(Math.abs(netSalary)) + '</span></div>' +
+  '</div>';
+
+  // 2) special investments section
+  const siProfitSent = (s.totalSpecialProfit || 0) >= 0 ? 'positive' : 'negative';
+  const siCount = (s.specialInvestments || []).length;
+  html += '<div class="stats-section">' +
+    '<div class="stats-section-title">⚡ השקעות מיוחדות</div>' +
+    '<div class="stats-row"><span>סה"כ השקעות</span><span>' + siCount + '</span></div>' +
+    '<div class="stats-row"><span>הצליחו / נכשלו</span><span>' + (s.totalSpecialSuccess || 0) + ' / ' + (s.totalSpecialFail || 0) + '</span></div>' +
+    '<div class="stats-row total"><span>נטו</span><span class="' + siProfitSent + '">' + ((s.totalSpecialProfit || 0) >= 0 ? '+' : '-') + fmt(Math.abs(s.totalSpecialProfit || 0)) + '</span></div>' +
+  '</div>';
+
+  // 3) portfolio section
+  const portNetSent = portfolioNet >= 0 ? 'positive' : 'negative';
+  const returnSign = returnPct >= 0 ? '+' : '-';
+  const deposits = s.portfolioDeposits || 0;
+  const hasPortfolioActivity = deposits > 0 || (s.totalRealizations || 0) > 0;
+
+  if(hasPortfolioActivity){
+    html += '<div class="stats-section">' +
+      '<div class="stats-section-title">📈 תיק השקעות</div>' +
+      '<div class="stats-row"><span>סה"כ הופקד</span><span>' + fmt(deposits) + '</span></div>' +
+      '<div class="stats-row"><span>תשואות שוק</span><span class="' + ((s.portfolioMarketReturns || 0) >= 0 ? 'positive' : 'negative') + '">' + ((s.portfolioMarketReturns || 0) >= 0 ? '+' : '-') + fmt(Math.abs(s.portfolioMarketReturns || 0)) + '</span></div>' +
+      '<div class="stats-row"><span>מס ששולם</span><span class="negative">-' + fmt(s.portfolioTax || 0) + '</span></div>' +
+      '<div class="stats-row"><span>תשואה כוללת</span><span class="' + portNetSent + '">' + returnSign + Math.abs(Math.round(returnPct*10)/10) + '%</span></div>' +
+      '<div class="stats-row"><span>מימושים</span><span>' + (s.totalRealizations || 0) + '</span></div>' +
+      '<div class="stats-row total"><span>נטו</span><span class="' + portNetSent + '">' + (portfolioNet >= 0 ? '+' : '-') + fmt(Math.abs(portfolioNet)) + '</span></div>' +
+    '</div>';
+  }
+
+  // 4) special investments detail list
+  if((s.specialInvestments || []).length > 0){
+    html += '<div class="stats-section">' +
+      '<div class="stats-section-title">📋 פירוט השקעות</div>';
+    s.specialInvestments.forEach(item => {
+      const sent = item.profit >= 0 ? 'positive' : 'negative';
+      const dateForItem = turnToDate(item.turn);
+      const profitText = (item.profit >= 0 ? '+' : '-') + fmt(Math.abs(item.profit));
+      html += '<div class="stats-inv-item">' +
+        '<span class="sii-when">' + dateForItem.monthName + ' ' + dateForItem.year + '</span>' +
+        '<span class="sii-name">' + item.name + '</span>' +
+        '<span class="sii-profit ' + sent + '">' + profitText + '</span>' +
+      '</div>';
+    });
+    html += '</div>';
+  }
+
+  $('statsModalContent').innerHTML = html;
+}
