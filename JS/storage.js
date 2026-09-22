@@ -1,9 +1,4 @@
-/* ============ storage.js ============
-   Local persistence: save/load/clear the full game state in
-   localStorage, so a refresh doesn't wipe an in-progress game and
-   doesn't double-count gamesPlayed. Saved at end of each turn and
-   after material actions (portfolio open/deposit/realize, special
-   investment). */
+/* ============ storage.js ============ */
 
 const KEY = 'race2apt_save_v1';
 
@@ -26,6 +21,7 @@ export function saveGame(state){
       index: state.index,
       total: state.total,
       nickname: state.nickname,
+      stats: state.stats,
       savedAt: Date.now()
     };
     localStorage.setItem(KEY, JSON.stringify(serializable));
