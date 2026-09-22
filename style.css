@@ -86,6 +86,23 @@
   }
   .btn-primary:active{transform:scale(0.97);box-shadow:0 6px 14px -8px rgba(242,183,5,0.5);}
 
+  .btn-how-to{
+    margin-top:4px;
+    width:100%;
+    background:transparent;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:14px;
+    font-family:'Assistant',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--ink-dim);
+    cursor:pointer;
+    transition:transform .12s ease, background .15s ease, border-color .15s ease;
+  }
+  .btn-how-to:active{transform:scale(0.97);}
+  .btn-how-to:hover{background:rgba(238,243,249,0.04);border-color:rgba(238,243,249,0.2);}
+
   .global-stats{
     margin-top:20px;width:100%;display:flex;gap:8px;
   }
@@ -183,12 +200,37 @@
   .option-btn:disabled{opacity:.5;cursor:default;}
 
   .special-invest-btn{
-    background:var(--card-2);border:1px solid rgba(242,183,5,0.35);
-    font-family:'Rubik',sans-serif;font-weight:700;
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    align-items:stretch;
+    text-align:right;
+    background:var(--card-2);
+    border:1px solid rgba(242,183,5,0.35);
+    padding:12px 14px;
+    font-family:'Assistant',sans-serif;
+    font-weight:600;
   }
   .special-invest-btn:not(:disabled):hover{
-    background:#264a78;border-color:rgba(242,183,5,0.6);
+    background:#264a78;
+    border-color:rgba(242,183,5,0.6);
   }
+  .sib-top{
+    font-family:'Rubik',sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+    color:var(--ink);
+  }
+  .sib-bottom{
+    display:flex;
+    gap:6px;
+    align-items:center;
+    font-size:11.5px;
+    font-weight:500;
+  }
+  .sib-win{color:var(--mint);}
+  .sib-lose{color:var(--coral);}
+  .sib-sep{color:var(--ink-dim);}
 
   /* opportunity card */
   .opp-label{font-size:12px;color:var(--gold-soft);letter-spacing:.02em;margin-bottom:4px;font-weight:700;}
@@ -213,39 +255,21 @@
   .gauge-inner{width:66px;height:66px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .gauge-inner .pct{font-family:'Rubik',sans-serif;font-weight:800;font-size:17px;color:var(--mint);}
   .gauge-inner .pct-lbl{font-size:9px;color:var(--ink-dim);}
-  .opp-figures{text-align:right;}
-  .opp-figures .row{margin-bottom:6px;}
-  .opp-figures .row .lbl{font-size:12px;color:var(--ink-dim);}
-  .opp-figures .row .amt{font-family:'Rubik',sans-serif;font-weight:800;font-size:16px;}
-  .opp-figures .cost .amt{color:var(--coral);}
-  .opp-figures .gain .amt{color:var(--mint);}
-  .opp-figures .net .amt{color:var(--gold-soft);font-size:14px;}
 
-  /* special-investment win/loss preview */
-  .special-figures{
-    display:flex;flex-direction:column;gap:6px;
-    background:rgba(238,243,249,0.03);
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:11px 14px;
-    margin:0 auto 14px;
-    max-width:280px;
-    width:100%;
+  .opp-multipliers{
+    font-family:'Rubik',sans-serif;
+    font-weight:700;
+    font-size:13.5px;
+    color:var(--gold-soft);
+    text-align:center;
+    margin-bottom:6px;
   }
-  .sf-row{
-    display:flex;justify-content:space-between;align-items:center;
-    font-size:14px;
-  }
-  .sf-lbl{color:var(--ink-dim);font-weight:500;}
-  .sf-amt{
-    font-family:'Rubik',sans-serif;font-weight:800;font-size:15px;
-  }
-  .sf-row.win .sf-amt{color:var(--mint);}
-  .sf-row.lose .sf-amt{color:var(--coral);}
-  .sf-note{
-    font-size:10.5px;color:var(--ink-dim);
-    text-align:center;margin-top:3px;
-    border-top:1px dashed var(--line);padding-top:5px;
+  .opp-realize-note{
+    font-size:11px;
+    color:var(--ink-dim);
+    text-align:center;
+    margin-bottom:14px;
+    font-style:italic;
   }
 
   /* modal */
@@ -266,6 +290,35 @@
   }
   .modal-title{font-family:'Rubik',sans-serif;font-weight:800;font-size:17px;margin-bottom:10px;padding-left:30px;}
   .modal-text{font-size:14.5px;color:var(--ink);line-height:1.6;}
+
+  /* how-to modal */
+  .how-to-content{line-height:1.7;text-align:right;}
+  .how-to-section{margin-bottom:14px;}
+  .how-to-section:last-child{margin-bottom:0;}
+  .how-to-section-title{
+    font-family:'Rubik',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    color:var(--gold-soft);
+    margin-bottom:5px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .how-to-section-body{
+    font-size:12.5px;
+    color:var(--ink);
+    line-height:1.7;
+  }
+  .how-to-section-body ul{
+    margin:0;
+    padding-right:16px;
+    padding-left:0;
+  }
+  .how-to-section-body li{
+    margin-bottom:3px;
+  }
+  .how-to-section-body strong{color:var(--gold-soft);font-weight:600;}
 
   .portfolio-track-btn,.portfolio-pct-btn{
     background:var(--card-2);border:1px solid var(--line);border-radius:14px;
@@ -288,7 +341,7 @@
   .portfolio-realize-row .positive{color:var(--mint);font-weight:700;}
   .portfolio-realize-row .negative{color:var(--coral);font-weight:700;}
 
-  /* ---------- MONTH SUMMARY (card-based) ---------- */
+  /* ---------- MONTH SUMMARY ---------- */
   .ms-hero{
     border-radius:16px;padding:16px 18px;margin-bottom:12px;
     background:linear-gradient(135deg, rgba(57,194,164,0.18), rgba(57,194,164,0.06));
@@ -368,6 +421,14 @@
   .end-screen{justify-content:center;align-items:center;text-align:center;gap:0;}
   .end-emoji{font-size:52px;margin-bottom:12px;}
   .end-screen h2{font-size:26px;font-weight:900;}
+  .end-date{
+    margin-top:6px;
+    font-family:'Rubik',sans-serif;
+    font-weight:600;
+    font-size:13.5px;
+    color:var(--ink-dim);
+    text-align:center;
+  }
   .end-stats{width:100%;display:flex;gap:12px;margin-top:22px;}
   .end-stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 8px;}
   .end-stat .lbl{font-size:12px;color:var(--ink-dim);margin-bottom:6px;}
@@ -385,95 +446,86 @@
   }
   .btn-secondary:active{transform:scale(0.97);}
 
+  /* ---------- GAME STATS MODAL ---------- */
+  .stats-meta{
+    text-align:center;
+    font-size:12.5px;
+    color:var(--ink-dim);
+    line-height:1.8;
+    padding:10px 12px;
+    background:rgba(238,243,249,0.03);
+    border:1px dashed var(--line);
+    border-radius:12px;
+    margin-bottom:12px;
+  }
+
+  .stats-section{
+    background:rgba(238,243,249,0.04);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+
+  .stats-section-title{
+    font-family:'Rubik',sans-serif;
+    font-weight:700;
+    font-size:13.5px;
+    color:var(--ink);
+    margin-bottom:8px;
+  }
+
+  .stats-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:4px 0;
+    font-size:12.5px;
+    color:var(--ink);
+  }
+  .stats-row span:first-child{color:var(--ink-dim);}
+  .stats-row .positive{color:var(--mint);font-weight:600;}
+  .stats-row .negative{color:var(--coral);font-weight:600;}
+  .stats-row.total{
+    border-top:1px solid var(--line);
+    margin-top:6px;
+    padding-top:8px;
+    font-family:'Rubik',sans-serif;
+    font-weight:700;
+    font-size:13.5px;
+  }
+
+  .stats-inv-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:8px;
+    margin-bottom:4px;
+    background:rgba(238,243,249,0.03);
+    font-size:12.5px;
+  }
+  .sii-when{
+    color:var(--ink-dim);
+    font-size:11px;
+    flex-shrink:0;
+  }
+  .sii-name{
+    color:var(--ink);
+    flex:1;
+    text-align:center;
+    font-weight:600;
+  }
+  .sii-profit{
+    font-family:'Rubik',sans-serif;
+    font-weight:700;
+    font-size:12.5px;
+    flex-shrink:0;
+  }
+  .sii-profit.positive{color:var(--mint);}
+  .sii-profit.negative{color:var(--coral);}
+
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
   }
-/* ---------- end-screen date line ---------- */
-.end-date{
-  margin-top:6px;
-  font-family:'Rubik',sans-serif;
-  font-weight:600;
-  font-size:13.5px;
-  color:var(--ink-dim);
-  text-align:center;
-}
-
-/* ---------- game stats modal ---------- */
-.stats-meta{
-  text-align:center;
-  font-size:12.5px;
-  color:var(--ink-dim);
-  line-height:1.8;
-  padding:10px 12px;
-  background:rgba(238,243,249,0.03);
-  border:1px dashed var(--line);
-  border-radius:12px;
-  margin-bottom:12px;
-}
-
-.stats-section{
-  background:rgba(238,243,249,0.04);
-  border:1px solid var(--line);
-  border-radius:12px;
-  padding:12px 14px;
-  margin-bottom:10px;
-}
-
-.stats-section-title{
-  font-family:'Rubik',sans-serif;
-  font-weight:700;
-  font-size:13.5px;
-  color:var(--ink);
-  margin-bottom:8px;
-}
-
-.stats-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:4px 0;
-  font-size:12.5px;
-  color:var(--ink);
-}
-.stats-row span:first-child{color:var(--ink-dim);}
-.stats-row .positive{color:var(--mint);font-weight:600;}
-.stats-row .negative{color:var(--coral);font-weight:600;}
-.stats-row.total{
-  border-top:1px solid var(--line);
-  margin-top:6px;
-  padding-top:8px;
-  font-family:'Rubik',sans-serif;
-  font-weight:700;
-  font-size:13.5px;
-}
-
-.stats-inv-item{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:6px;
-  padding:6px 10px;
-  border-radius:8px;
-  margin-bottom:4px;
-  background:rgba(238,243,249,0.03);
-  font-size:12.5px;
-}
-.sii-when{
-  color:var(--ink-dim);
-  font-size:11px;
-  flex-shrink:0;
-}
-.sii-name{
-  color:var(--ink);
-  flex:1;
-  text-align:center;
-  font-weight:600;
-}
-.sii-profit{
-  font-family:'Rubik',sans-serif;
-  font-weight:700;
-  font-size:12.5px;
-  flex-shrink:0;
-}
-.sii-profit.positive{color:var(--mint);}
-.sii-profit.negative{color:var(--coral);}
