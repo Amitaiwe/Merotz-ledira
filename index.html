@@ -39,6 +39,7 @@
     <div class="start-actions">
       <button class="btn-primary" id="continueBtn" style="display:none;">המשך משחק</button>
       <button class="btn-primary" id="newGameBtn">מתחילים</button>
+      <button class="btn-how-to" id="howToOpenBtn" type="button">❓ איך משחקים?</button>
     </div>
 
     <div class="global-stats">
@@ -57,7 +58,7 @@
       </div>
     </div>
 
-    <div class="version-tag">V1.9</div>
+    <div class="version-tag">V2.0</div>
   </div>
 
   <!-- GAME SCREEN -->
@@ -199,19 +200,126 @@
   </div>
 
   <!-- HOW TO PLAY MODAL -->
-  <div class="modal-overlay show" id="howToModal">
+  <div class="modal-overlay" id="howToModal">
     <div class="modal-box">
+      <button class="modal-close" id="howToClose">✕</button>
       <div class="modal-title">איך משחקים?</div>
-      <div class="modal-text">
-        יש לך הון התחלתי, ומטרה אחת: להגיע למחיר של דירה שרק ממשיך לברוח קדימה.
-        <br><br>
-        בכל תור תעמוד בפניך החלטה יומיומית רגילה — בלי לדעת כמה כל בחירה שווה באמת. תבחר לפי מה שהיית עושה בחיים האמיתיים, לא לפי ניקוד.
-        <br><br>
-        לאורך הדרך יצוצו גם הזדמנויות השקעה עם סיכון וסיכוי גלויים. שים לב גם למד השחיקה שלך — הוא עולה ויורד לפי הבחירות שלך, ושחיקה גבוהה מדי מסיימת את המשחק.
-        <br><br>
-        המטרה: עו"ש ותיק ההשקעות שלך יחד צריכים להגיע למחיר הדירה העדכני.
+      <div class="modal-text how-to-content">
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">🎯 מטרת המשחק</div>
+          <div class="how-to-section-body">
+            להגיע למחיר הדירה. <strong>עו"ש + תיק ההשקעות שלך יחד</strong> צריכים להיות גדולים או שווים למחיר הדירה העדכני. ברגע שזה קורה — ניצחת.
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">⏱️ תור = חודש</div>
+          <div class="how-to-section-body">
+            המשחק מתחיל ב-<strong>ינואר 2027</strong>. כל תור מתקדם חודש אחד קדימה. יש לך 100 חודשים (8 שנים ו-4 חודשים) להגיע למטרה.
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">💰 משכורת</div>
+          <div class="how-to-section-body">
+            המשכורת שלך גדלה בהדרגה — סביב <strong>5-8% בשנה</strong>. היא נכנסת לעו"ש בכל חודש.
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">💸 הוצאות קבועות</div>
+          <div class="how-to-section-body">
+            ההוצאות שלך עולות עם האינפלציה — סביב <strong>4-6% בשנה</strong>. מעבר לזה, הן מושפעות מהבחירות היומיות שלך.
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">🏠 מחיר הדירה</div>
+          <div class="how-to-section-body">
+            מחיר הדירה עולה בכ-<strong>8-12% בשנה</strong>. הוא תמיד עולה, ואתה תמיד צריך לרדוף אחריו.
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">🎲 הבחירות היומיות</div>
+          <div class="how-to-section-body">
+            בכל תור תעמוד בפני החלטה יומיומית. כל תשובה משנה את ההוצאות הקבועות שלך ומשפיעה על השחיקה.
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">⚡ שחיקה (burnout)</div>
+          <div class="how-to-section-body">
+            מד 0-100%. שחיקה גבוהה = הפסד מיידי. אם תגיע ל-<strong>90%</strong> — המשחק נגמר. אז צריך לאזן בין חיסכון לבין לפרק.
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">📈 תיק השקעות</div>
+          <div class="how-to-section-body">
+            בכל עת תוכל לפתוח תיק השקעות — אם אין לך אחד פעיל. שני מסלולים:
+            <ul>
+              <li><strong>סולידי</strong> — תשואה 0-3% לחודש, לעתים רחוקות שלילית.</li>
+              <li><strong>מסוכן</strong> — תשואה -3% עד +4.5% לחודש.</li>
+            </ul>
+            <strong>הפקדה</strong> — פעם אחת בחודש. תוכל להפקיד 50% או 90% מהעו"ש.<br>
+            <strong>תשואה חודשית</strong> — בסוף כל חודש התיק עולה או יורד אוטומטית לפי המסלול.
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">💸 מימוש תיק ומיסוי</div>
+          <div class="how-to-section-body">
+            מימוש אפשרי רק בחודש שמתחלק ב-6 (חודש 6, 12, 18...). כשאתה מממש:
+            <ul>
+              <li>כל התיק חוזר לעו"ש.</li>
+              <li>על <strong>רווח</strong> תשלם <strong>10% מס</strong>.</li>
+              <li>על הפסד — אין מס.</li>
+              <li>אחרי מימוש — לא ניתן לפתוח תיק חדש עד החודש הבא.</li>
+              <li>לא ניתן לממש בחודש שבו הפקדת.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">⚡ השקעות מיוחדות</div>
+          <div class="how-to-section-body">
+            כל 6 חודשים (חודש 6, 12, 18...) תוצג לך הצעת השקעה מיוחדת:
+            <ul>
+              <li>תוכל להשקיע <strong>50%, 60%, 70% או 80%</strong> מהעו"ש — רק אם הסכום ≥ <strong>50,000 ₪</strong>.</li>
+              <li>לכל הצעה יש סיכוי הצלחה (למשל 57.3%) ומכפילי תשלום.</li>
+              <li>המספרים <strong>נגרלים כל פעם מחדש</strong> — כך שאותו סוג השקעה יכול להיות משתלם פעם אחת ופחות בפעם אחרת.</li>
+              <li><strong>בהצלחה</strong> — תקבל את הסכום × מכפיל ההצלחה.</li>
+              <li><strong>בכישלון</strong> — תקבל את הסכום × מכפיל הכישלון (בדרך כלל פחות מהקרן).</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">🏆 איך מנצחים ומפסידים</div>
+          <div class="how-to-section-body">
+            <ul>
+              <li><strong>ניצחון</strong> — עו"ש + תיק ≥ מחיר הדירה.</li>
+              <li><strong>פשיטת רגל</strong> — עו"ש + תיק &lt; 10% ממחיר הדירה.</li>
+              <li><strong>שחיקה</strong> — הגעת ל-90% burnout.</li>
+              <li><strong>פסק זמן</strong> — עברו 100 חודשים בלי ניצחון.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="how-to-section">
+          <div class="how-to-section-title">💡 טיפים</div>
+          <div class="how-to-section-body">
+            <ul>
+              <li>מימוש תיק בחודש הנכון חוסך מס.</li>
+              <li>השקעות מיוחדות הן סיכון גבוה — לא תמיד כדאי.</li>
+              <li>שמירה על שחיקה נמוכה חשובה לא פחות מחיסכון.</li>
+            </ul>
+          </div>
+        </div>
+
       </div>
-      <button class="btn-primary" id="howToClose" style="margin-top:16px;">הבנתי, בואו נתחיל</button>
     </div>
   </div>
 
