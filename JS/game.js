@@ -1,12 +1,12 @@
-/* ============ game.js ============
-   Game state and game-flow logic. */
+/* ============ game.js ============ */
 
 import { CONFIG, QUESTIONS, WIN_QUOTES, LOSE_QUOTES,
          BANKRUPT_QUOTES, BURNOUT_QUOTES, PORTFOLIO_TRACKS,
          SPECIAL_INVESTMENTS } from './data.js';
 import { $, fmt, showScreen, updateStats, renderQuestion,
          renderSpecialInvestment, showToast,
-         showMonthSummary, renderWinScreen, renderLoseScreen } from './ui.js';
+         showMonthSummary, renderWinScreen, renderLoseScreen,
+         turnToDate } from './ui.js';
 import { recordGamePlayed, recordGameWon, saveNickname } from './firebase.js';
 import { saveGame, loadGame, clearSave } from './storage.js';
 
@@ -25,16 +25,30 @@ export function shuffle(arr){
   return a;
 }
 
+function freshStats(){
+  return {
+    totalSalaryEarned: 0,
+    totalExpensesPaid: 0,
+    specialInvestments: [],      // [{turn, name, profit}]
+    totalSpecialProfit: 0,
+    totalSpecialSuccess: 0,
+    totalSpecialFail: 0,
+    portfolioDeposits: 0,
+    portfolioWithdrawals: 0,
+    portfolioMarketReturns: 0,
+    portfolioTax: 0,
+    totalRealizations: 0
+  };
+}
+
 /* ============ CENTRAL MONEY LEDGER ============ */
 export function applyCheckingChange(amount, source){
   state.checkingAccount = Math.max(0, state.checkingAccount + amount);
 }
-
 export function applyExpenseChange(percent, source){
   const next = state.fixedExpenses * (1 + percent);
   state.fixedExpenses = Math.max(CONFIG.minFixedExpenses, next);
 }
-
 export function applyPortfolioChange(amount, source){
   state.investmentPortfolio = Math.max(0, state.investmentPortfolio + amount);
 }
@@ -45,11 +59,7 @@ export function buildSlots(){
   let slots = [];
   for(let turn=1; turn<=gameLength; turn++){
     const isSpecialTurn = turn % CONFIG.specialInvestmentEveryMonths === 0;
-    if(isSpecialTurn){
-      slots.push({ type:'special', data: null });
-    } else {
-      slots.push({ type:'question', data: null });
-    }
+    slots.push({ type: isSpecialTurn ? 'special' : 'question', data: null });
   }
   const questionPool = shuffle(QUESTIONS);
   let qi = 0;
@@ -87,12 +97,11 @@ export function newGame(){
     slots: built.slots,
     index: 0,
     total: built.gameLength,
-    nickname: nicknameRaw
+    nickname: nicknameRaw,
+    stats: freshStats()
   };
   recordGamePlayed();
   if(nicknameRaw) saveNickname(nicknameRaw);
-  // generate a special-investment offer if the first turn somehow is one
-  // (defensive: turn 1 is never a special month, but the call is harmless)
   maybeGenerateSpecialInvestment();
   updateStats(false);
   renderSlot();
@@ -109,13 +118,14 @@ export function continueGame(){
   if(state.stockPortfolio.depositedThisTurn === undefined) state.stockPortfolio.depositedThisTurn = false;
   if(!state.specialInvestment) state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
   if(state.lastSpecialInvestment === undefined) state.lastSpecialInvestment = null;
+  if(!state.stats) state.stats = freshStats();
   updateStats(false);
   renderSlot();
   showScreen('game');
   return true;
 }
 
-/* ============ STOCK PORTFOLIO ============ */
+/* ============ PORTFOLIO ============ */
 function pickWeightedReturn(returns){
   const totalWeight = returns.reduce((sum, r) => sum + r.weight, 0);
   let roll = Math.random() * totalWeight;
@@ -138,6 +148,7 @@ export function openPortfolio(track, percent){
   const amount = state.checkingAccount * percent;
   applyCheckingChange(-amount, 'portfolio-open');
   applyPortfolioChange(amount, 'portfolio-open');
+  state.stats.portfolioDeposits += amount;
   state.stockPortfolio = {
     active: true, riskTrack: track, totalDeposited: amount,
     openedAtTurn: state.index + 1, lastReturnPct: null, depositedThisTurn: true
@@ -153,6 +164,7 @@ export function depositToPortfolio(percent){
   applyPortfolioChange(amount, 'portfolio-deposit');
   state.stockPortfolio.totalDeposited += amount;
   state.stockPortfolio.depositedThisTurn = true;
+  state.stats.portfolioDeposits += amount;
   saveGame(state);
 }
 
@@ -172,6 +184,9 @@ export function realizePortfolio(){
   applyCheckingChange(netReturned, 'portfolio-realize');
   state.lastPortfolioRealization = { turn: state.index + 1, grossValue, profit, tax, netReturned };
   state.portfolioClosedAtTurn = state.index + 1;
+  state.stats.portfolioWithdrawals += netReturned;
+  state.stats.portfolioTax += tax;
+  state.stats.totalRealizations += 1;
   state.stockPortfolio = {
     active: false, riskTrack: null, totalDeposited: 0,
     openedAtTurn: null, lastReturnPct: null, depositedThisTurn: false
@@ -183,8 +198,10 @@ function applyPortfolioMonthlyReturn(){
   if(!state.stockPortfolio.active) return;
   const track = PORTFOLIO_TRACKS[state.stockPortfolio.riskTrack];
   const returnPct = pickWeightedReturn(track.returns);
-  applyPortfolioChange(state.investmentPortfolio * returnPct, 'portfolio-return');
+  const gain = state.investmentPortfolio * returnPct;
+  applyPortfolioChange(gain, 'portfolio-return');
   state.stockPortfolio.lastReturnPct = returnPct;
+  state.stats.portfolioMarketReturns += gain;
 }
 
 /* ============ SPECIAL INVESTMENT ============ */
@@ -235,10 +252,20 @@ export function investSpecial(percent){
   const result = {
     type: inv.key, name: inv.name, amount, success, multiplier,
     returned, profit: returned - amount,
-    chancePct: state.specialInvestment.rolledChance
+    chancePct: state.specialInvestment.rolledChance,
+    turn: state.index + 1
   };
   state.lastSpecialInvestment = result;
   state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
+  // stats
+  state.stats.specialInvestments.push({
+    turn: result.turn,
+    name: inv.name,
+    profit: result.profit
+  });
+  state.stats.totalSpecialProfit += result.profit;
+  if(success) state.stats.totalSpecialSuccess++;
+  else state.stats.totalSpecialFail++;
   updateStats(true);
   saveGame(state);
   return result;
@@ -256,7 +283,10 @@ export function getSpecialInvestmentType(){
 /* ============ RENDER SLOT ============ */
 export function renderSlot(){
   const slot = state.slots[state.index];
-  $('qCounter').textContent = 'תור ' + (state.index+1);
+  const turn = state.index + 1;
+  const date = turnToDate(turn);
+  $('qCounter').textContent = 'תור ' + turn + ' · ' + date.monthName + ' ' + date.year;
+
   if(slot.type === 'question'){
     renderQuestion(slot.data);
   } else if(slot.type === 'special'){
@@ -301,15 +331,12 @@ export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
   applyCheckingChange(monthlyCashFlow, 'monthly-cashflow');
   state.apartmentPrice *= (1 + rand(CONFIG.inflation.min, CONFIG.inflation.max));
 
+  // stats: accumulate salary earned and expenses paid this turn
+  state.stats.totalSalaryEarned += state.salary;
+  state.stats.totalExpensesPaid += state.fixedExpenses;
+
   const hadActivePortfolio = state.stockPortfolio.active;
   applyPortfolioMonthlyReturn();
-
-  // NOTE: maybeGenerateSpecialInvestment() is NOT called here — it now
-  // runs at the START of the new turn, in proceedAfterMonthSummary,
-  // after state.index has already been incremented. Calling it here
-  // used to run while state.index still pointed at the OLD turn, so
-  // for a special month (e.g. 6) it was checking (5+1)%6==0 → false,
-  // and the offer was never created.
 
   const specialSnapshot = state.lastSpecialInvestment;
 
@@ -325,7 +352,6 @@ export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
       (state.investmentPortfolio - investmentPortfolioBefore),
     specialInvestment: specialSnapshot
   };
-
   state.lastSpecialInvestment = null;
 
   setTimeout(() => {
@@ -353,8 +379,6 @@ export function proceedAfterMonthSummary(){
   if(state.stockPortfolio){
     state.stockPortfolio.depositedThisTurn = false;
   }
-  // generate a special-investment offer for the NEW turn, now that
-  // state.index points at it. On turn 6: (5+1)%6==0 → offer created.
   maybeGenerateSpecialInvestment();
   saveGame(state);
   renderSlot();
