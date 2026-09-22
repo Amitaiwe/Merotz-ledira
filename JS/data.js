@@ -26,7 +26,9 @@ export const CONFIG = {
       { min:  0.0020, max:  0.0042 },
       { min:  0.0044, max:  0.0060 }
     ],
-    investCostShareOfCapitalCap: 0.6
+        investCostShareOfCapitalCap: 0.6,
+    startYear: 2027,
+    startMonth: 0
 };
 
 export const QUESTIONS = [
