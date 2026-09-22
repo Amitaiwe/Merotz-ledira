@@ -52,7 +52,6 @@ export function applyPortfolioChange(amount, source){
   state.investmentPortfolio = Math.max(0, state.investmentPortfolio + amount);
 }
 
-/* ============ GAME SETUP ============ */
 export function buildSlots(){
   const gameLength = CONFIG.maxTurns;
   let slots = [];
@@ -124,7 +123,6 @@ export function continueGame(){
   return true;
 }
 
-/* ============ PORTFOLIO ============ */
 function pickWeightedReturn(returns){
   const totalWeight = returns.reduce((sum, r) => sum + r.weight, 0);
   let roll = Math.random() * totalWeight;
@@ -203,7 +201,6 @@ function applyPortfolioMonthlyReturn(){
   state.stats.portfolioMarketReturns += gain;
 }
 
-/* ============ SPECIAL INVESTMENT ============ */
 export function isSpecialInvestmentMonth(){
   return (state.index + 1) % CONFIG.specialInvestmentEveryMonths === 0;
 }
@@ -256,11 +253,7 @@ export function investSpecial(percent){
   };
   state.lastSpecialInvestment = result;
   state.specialInvestment = { active:false, type:null, offeredAtTurn:null, rolledChance:null, rolledPayout:null, rolledLoss:null };
-  state.stats.specialInvestments.push({
-    turn: result.turn,
-    name: inv.name,
-    profit: result.profit
-  });
+  state.stats.specialInvestments.push({ turn: result.turn, name: inv.name, profit: result.profit });
   state.stats.totalSpecialProfit += result.profit;
   if(success) state.stats.totalSpecialSuccess++;
   else state.stats.totalSpecialFail++;
@@ -278,7 +271,6 @@ export function getSpecialInvestmentType(){
   return SPECIAL_INVESTMENTS.find(i => i.key === state.specialInvestment.type) || null;
 }
 
-/* ============ RENDER SLOT ============ */
 export function renderSlot(){
   const slot = state.slots[state.index];
   const turn = state.index + 1;
@@ -313,7 +305,6 @@ export function chooseOption(tier, btnEl){
   applyInflationAndAdvance(fixedExpensesBeforeChoice);
 }
 
-/* ---------- shared flow ---------- */
 export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
   const salaryBefore = state.salary;
   const fixedExpensesBefore = (fixedExpensesBeforeOverride !== undefined)
@@ -323,10 +314,9 @@ export function applyInflationAndAdvance(fixedExpensesBeforeOverride){
   const investmentPortfolioBefore = state.investmentPortfolio;
   const apartmentPriceBefore = state.apartmentPrice;
 
-  // auto-inflation on fixed expenses — separate from the choice's effect,
-  // applied every month regardless of what the player picked
-  state.fixedExpenses *= (1 + rand(CONFIG.autoExpenseInflation.min, CONFIG.autoExpenseInflation.max));
-  state.fixedExpenses = Math.max(CONFIG.minFixedExpenses, state.fixedExpenses);
+  // automatic inflation on fixed expenses
+  const autoInflationPct = rand(CONFIG.autoExpenseInflation.min, CONFIG.autoExpenseInflation.max);
+  applyExpenseChange(autoInflationPct, 'auto-inflation');
 
   state.salary *= (1 + rand(CONFIG.salaryGrowth.min, CONFIG.salaryGrowth.max));
   const monthlyCashFlow = state.salary - state.fixedExpenses;
